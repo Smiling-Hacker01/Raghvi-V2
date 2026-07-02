@@ -78,7 +78,82 @@ Anything outside this focus should be parked unless a new decision explicitly ch
 | Knowledge graph database  | Roadmap    | May improve relationship-heavy memory queries.               | Adds another datastore before graph needs are proven.             | When project and relationship queries exceed relational modeling needs. |
 | Event bus                 | Roadmap    | Supports decoupled asynchronous workflows.                   | A simple background-job approach is easier initially.             | When multiple modules need durable event-driven workflows.              |
 | Multi-region deployment   | North Star | Improves global resilience and latency.                      | Not justified before product validation and real traffic.         | When users and reliability requirements demand it.                      |
-| Offline-first mode        | Roadmap    | Improves usability during poor connectivity.                 | Requires local storage, synchronization, and conflict resolution. | After online-first workflows are stable.                                |
+| Offline-first mode        | Roadmap    | Improves usability during poor connectivity.                 | Requires local storage, synchronization, and conflict resolution. | After online-first workflows are stable.   
+| Knowledge Graph and GraphRAG Evaluation          | Roadmap | Enables Raghvi to answer relationship-heavy questions by combining semantic retrieval with explicit connections between users, projects, tasks, decisions, people, events, and goals. It can improve multi-hop reasoning, project continuity, dependency analysis, and connected planning. | GraphRAG depends on clean entities, reliable relationships, high-quality memory capture, and measurable retrieval gaps. Introducing a dedicated graph database or graph-first retrieval before those foundations exist would add unnecessary operational complexity and could amplify incorrect or incomplete memory relationships. | Evaluate after PostgreSQL + pgvector memory retrieval is stable and the project has evidence of relationship-heavy retrieval failures. Trigger evaluation when users frequently ask multi-hop questions, semantic retrieval misses connected context, `memory_links` becomes difficult to query or maintain, or graph traversal demonstrably improves answer quality in a benchmark. |
+| LangGraph Evaluation for Durable Agent Workflows | Roadmap | Supports stateful, multi-step AI workflows with branching, retries, tool execution, approval checkpoints, pause-and-resume behavior, and durable workflow state. This is valuable for complex planning and user-approved task execution.                                                   | The MVP orchestration flow is intentionally simple: retrieve context, reason, optionally invoke one approved tool, respond, and evaluate memory. Adding a workflow framework before Raghvi has proven multi-step workflows would increase abstraction, dependency, debugging, and operational complexity.                           | Evaluate when Raghvi needs multiple tool calls in one task, approval pauses, retry handling, background execution, long-running plans, or durable task state that becomes difficult to manage with the custom orchestration layer.                                                                                                                                                   |
+
+## Future Architecture Path: Graph-Aware Intelligence
+
+Raghvi’s long-term architecture may evolve from semantic retrieval toward graph-aware intelligence. This is a roadmap direction, not an MVP commitment.
+
+### Phase 1 — Structured Memory and Hybrid Retrieval
+
+The MVP uses PostgreSQL, pgvector, structured memory metadata, and `memory_links`.
+
+```text
+User request
+  ↓
+Intent and project filters
+  ↓
+Structured memory query
+  ↓
+Semantic similarity retrieval
+  ↓
+Ranked context
+  ↓
+LLM response
+```
+
+This phase validates memory quality, user controls, retrieval relevance, and relationship capture without introducing a dedicated graph database.
+
+### Phase 2 — Selective Graph Traversal
+
+After `memory_links` contains reliable relationships, Raghvi may add graph traversal for selected queries.
+
+Examples:
+
+* Which unfinished tasks are blocking my portfolio release?
+* What decisions led to the current architecture?
+* Which goals, tasks, and deadlines are connected to this project?
+* What commitments are related to a specific person or event?
+
+At this stage, relationships may still be stored and queried through PostgreSQL.
+
+### Phase 3 — GraphRAG Evaluation
+
+GraphRAG will be evaluated when relationship-aware retrieval can be shown to improve results over standard hybrid retrieval.
+
+A GraphRAG workflow may look like:
+
+```text
+User request
+  ↓
+Identify relevant entities and intent
+  ↓
+Semantic retrieval of relevant memories
+  ↓
+Traverse related projects, tasks, decisions, and events
+  ↓
+Build a connected evidence set
+  ↓
+Generate an answer with relationship-aware context
+```
+
+GraphRAG must not be adopted solely because it is technically advanced. Adoption requires evidence that it improves retrieval quality, reduces missing context, or enables user-important multi-hop questions that the existing architecture cannot answer reliably.
+
+### Phase 4 — Dedicated Knowledge Graph, If Justified
+
+A dedicated graph database may be introduced only when PostgreSQL-based relationship modeling becomes a measurable constraint.
+
+Potential adoption signals include:
+
+* Relationship-heavy queries are common and slow.
+* Multi-hop traversal is difficult to express or maintain in relational queries.
+* Entity and relationship volume grows substantially.
+* Graph-aware retrieval produces consistently better evaluation results.
+* The operational cost is justified by demonstrated product value.
+
+Until then, PostgreSQL remains the source of truth for structured memory and relationships.
 
 ## Open Questions to Revisit
 
