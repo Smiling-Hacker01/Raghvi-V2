@@ -1,6 +1,6 @@
 # ADR-002 — AI Orchestration Strategy
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-07-02
 **Decision Owners:** Vishal Singh Kushwaha
 **Related Documents:**
@@ -460,6 +460,57 @@ Future background jobs may support:
 * Durable task execution
 * Notification delivery
 * Workflow recovery
+
+## MVP Action Boundary
+
+Raghvi’s MVP will prioritize assistance, planning, and user-controlled continuity over autonomous execution.
+
+The MVP must prove that Raghvi can understand a request, retrieve useful context, propose or perform a safe action, and clearly communicate what happened. It does not need to automate every mobile capability.
+
+### Allowed in the MVP
+
+| Capability                                             | MVP Behavior                                                                       | Permission / Confirmation Rule                                                                                |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Natural-language conversation                          | Answer questions, explain concepts, guide users, and maintain project continuity.  | No external permission required.                                                                              |
+| Memory management                                      | Save low-risk memories, show saved memories, edit or delete memories.              | Memory must be enabled; sensitive memory requires confirmation.                                               |
+| Project planning                                       | Create plans, break goals into steps, track project tasks, and summarize progress. | No confirmation required for internal planning.                                                               |
+| Reminder creation                                      | Create a user-requested reminder.                                                  | Requires reminder or notification permission; no additional confirmation when the user directly requested it. |
+| Daily briefing                                         | Show a user-enabled summary of tasks, reminders, and project progress.             | Explicit opt-in; must respect quiet hours.                                                                    |
+| Open an Android application                            | Open an application explicitly requested by the user.                              | Requires device capability permission where applicable; no separate confirmation for a direct request.        |
+| Draft a message                                        | Generate a WhatsApp, SMS, or email draft for the user to review.                   | No sending permission required for drafting; the user reviews the draft.                                      |
+| Search and summarize user-approved project information | Retrieve Raghvi project context, notes, and memories.                              | Requires memory or document access only when the user has enabled it.                                         |
+
+### Not Included in the MVP
+
+| Capability                                                | Why It Is Deferred                                                                                           |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Automatically sending WhatsApp, SMS, or email messages    | Requires stronger platform integration, recipient safety, confirmation UX, auditability, and error handling. |
+| Making phone calls                                        | High-impact external action that requires robust contact selection, confirmation, and device-level handling. |
+| Reading or replying to third-party messages automatically | Creates major privacy, platform-policy, and authorization concerns.                                          |
+| Modifying or deleting calendar events                     | Requires calendar integration, conflict handling, and explicit confirmation workflows.                       |
+| File deletion or device-setting changes                   | High risk of irreversible or harmful actions.                                                                |
+| Autonomous multi-step task completion                     | Requires durable workflow state, retries, approvals, and stronger evaluation before release.                 |
+| Background behavioral inference                           | Could feel intrusive before users have clear controls and trust in memory behavior.                          |
+| Relationship or habit memory                              | Requires additional consent, sensitivity controls, and validation.                                           |
+
+### MVP Safety Principle
+
+For the MVP, Raghvi may **recommend, plan, draft, remind, summarize, and open user-requested applications**.
+
+Raghvi must not independently send communications, place calls, delete data, modify external records, or infer sensitive personal information.
+
+### Graduation Criteria for New Actions
+
+A deferred action may move into a later release only when all of the following are true:
+
+* The user value is clear and validated.
+* Required platform permissions and policies are understood.
+* The action has a defined confirmation experience.
+* The action produces an audit event.
+* Failure, cancellation, retry, and ambiguity behavior are designed.
+* The action can be tested safely.
+* The user can revoke access or disable the capability.
+
 
 ---
 
