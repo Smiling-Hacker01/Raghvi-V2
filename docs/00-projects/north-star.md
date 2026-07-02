@@ -1,151 +1,161 @@
-# Raghvi v2 — North Star Document
+# Raghvi v2 — North Star
 
-**Version:** 1.0
+**Version:** 0.2
 **Status:** Draft
-**Owner:** Vishal Kushwaha
+**Owner:** Vishal Singh Kushwaha
 
 ---
 
 # Vision
 
-Raghvi v2 exists to become an intelligent, trustworthy, and proactive AI companion that helps users accomplish everyday tasks through natural conversation, contextual understanding, long-term memory, and secure action execution.
+Raghvi v2 is an **Agentic Personal Intelligence Platform** designed to help people think better, remember what matters, and accomplish meaningful work through natural conversation, long-term memory, reasoning, and secure task execution.
 
-Rather than functioning as a chatbot that simply answers questions, Raghvi v2 is designed to understand the user's goals, remember what matters over time, and assist across digital experiences while always respecting user privacy, security, and control.
+Raghvi is not simply an AI assistant.
+
+It is a trusted AI companion that grows with its users while remaining honest, transparent, and respectful.
 
 ---
 
 # Mission
 
-Build an AI assistant that feels less like software and more like a reliable companion—capable of understanding context, reasoning through problems, remembering important information, and helping users complete tasks efficiently without replacing their decision-making.
+To build an AI companion that empowers people through intelligence rather than replacing their judgment.
+
+Raghvi should help users make better decisions, learn continuously, stay organized, and complete meaningful work while respecting their privacy, autonomy, and trust.
 
 ---
 
-# Problem Statement
+# Our Belief
 
-Today's AI assistants excel at answering questions but often struggle to provide a consistent, personalized experience over time. They frequently lose context between sessions, have limited understanding of individual users, and offer minimal integration with everyday workflows.
+Technology should feel less like software and more like a trusted companion.
 
-Users are forced to repeat information, manually coordinate tasks across multiple apps, and manage fragmented interactions.
-
-Raghvi v2 aims to bridge this gap by combining conversational intelligence, persistent memory, and secure task execution into a unified assistant experience.
+Artificial intelligence should augment human intelligence—not replace it.
 
 ---
 
-# Target Users
+# Product Identity
 
-### Primary Users
+Raghvi combines three roles:
 
-* Students
-* Software Engineers
-* Professionals
-* Productivity-focused users
-* Early adopters of AI technology
+* Trusted Friend
+* Thoughtful Mentor
+* Intelligent Builder
 
-### Future Users
+These roles guide the personality of the product while the underlying platform focuses on reasoning, memory, and action.
 
-* Small teams
-* Freelancers
-* Entrepreneurs
-* Content creators
-* Researchers
+---
+
+# Core Product Pillars
+
+## Think
+
+Help users reason through problems.
+
+Challenge assumptions respectfully.
+
+Teach rather than simply answer.
+
+---
+
+## Remember
+
+Build meaningful long-term memory that improves personalization while remaining transparent and fully controllable by the user.
+
+---
+
+## Act
+
+Securely perform useful tasks on behalf of users whenever appropriate and authorized.
 
 ---
 
 # Product Principles
 
-Every feature added to Raghvi v2 must align with the following principles:
+Every feature should reinforce these principles.
 
-### 1. User First
+## Honesty over Agreement
 
-The assistant should optimize for the user's goals rather than maximizing conversation length or unnecessary interactions.
-
----
-
-### 2. Privacy by Design
-
-Users own their data.
-
-Memory should be transparent, manageable, and removable.
-
-Sensitive actions require explicit permission.
+Raghvi should provide thoughtful, evidence-based guidance rather than simply agreeing with users.
 
 ---
 
-### 3. Intelligence Through Reasoning
+## User Trust First
 
-The assistant should reason about problems, ask clarifying questions when needed, and avoid making unsupported assumptions.
-
----
-
-### 4. Long-Term Personalization
-
-Raghvi v2 should remember useful information over time to deliver increasingly personalized assistance, while giving users full control over what is stored.
+Privacy, transparency, and security are fundamental design requirements.
 
 ---
 
-### 5. Action Over Conversation
+## Memory with Purpose
 
-Whenever appropriate and authorized, the assistant should help users complete tasks rather than only describing how to complete them.
+Only remember information that provides long-term value to the user.
 
----
-
-### 6. Transparency
-
-The assistant should clearly distinguish between facts, assumptions, recommendations, and uncertainties.
+Memory must always remain visible and manageable.
 
 ---
 
-### 7. Extensibility
+## Action over Conversation
 
-The platform should be designed so new capabilities can be added without major architectural changes.
+Whenever possible, help users accomplish tasks instead of merely explaining them.
+
+---
+
+## Human-Centered Intelligence
+
+The goal is to make users more capable—not more dependent.
+
+---
+
+## Extensibility
+
+The platform should support future capabilities without requiring major architectural redesigns.
 
 ---
 
 # Success Metrics
 
-Raghvi v2 will be considered successful if it can:
+Raghvi succeeds when users:
 
-* Maintain useful long-term memory across conversations.
-* Complete common user tasks with minimal friction.
-* Integrate securely with supported device capabilities.
-* Provide responses that are contextually relevant and personalized.
-* Offer a modular architecture that supports future expansion.
+* Return because it understands them.
+* Trust its reasoning.
+* Save time through automation.
+* Learn something valuable.
+* Feel supported without feeling controlled.
 
 ---
 
-# MVP Scope
+# MVP Goals
 
-The first public version should include:
+The first release should include:
 
-* Authentication
 * Conversational AI
-* Long-term memory
-* User profile and preferences
-* Secure backend APIs
+* Persistent user memory
+* User profiles and preferences
 * Android application
+* Secure backend
 * Basic voice interaction
-* Initial tool calling for supported device actions
+* Initial device actions
+* Privacy controls
 * Conversation history
-* Settings for memory and privacy
 
 ---
 
 # Out of Scope (MVP)
 
-The MVP will not include:
+The MVP intentionally excludes:
 
-* Multi-device synchronization
-* Browser extensions
-* Smart home integrations
-* Autonomous internet browsing
-* Enterprise collaboration features
+* iOS
 * Plugin marketplace
-* iOS application
-* Fine-tuned custom language models
-
-These may be explored in future releases after validating the core product.
+* Autonomous web browsing
+* Enterprise collaboration
+* Smart home integrations
+* Multi-device synchronization
+* Custom model training
 
 ---
 
 # Long-Term Vision
 
-Over time, Raghvi v2 should evolve into a modular AI platform capable of supporting multiple interfaces (mobile, web, desktop), richer multimodal understanding, and an expanding ecosystem of tools and integrations while maintaining a strong commitment to privacy, transparency, and user control.
+Raghvi should evolve into a modular AI platform that can power mobile, web, desktop, voice, and future interfaces while preserving its identity and core values.
+
+No matter how capable it becomes, its mission remains unchanged:
+
+**Help people think better. Remember what matters. Act when it helps.**
