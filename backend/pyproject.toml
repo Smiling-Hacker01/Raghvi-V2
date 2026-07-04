@@ -1,0 +1,28 @@
+[project]
+name = "raghvi-backend"
+version = "0.1.0"
+description = "Raghvi v2 backend service (FastAPI)"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy>=2.0",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "pydantic-settings>=2.6",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.28",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
