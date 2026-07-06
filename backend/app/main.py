@@ -11,6 +11,7 @@ app = FastAPI(
 app.include_router(health_router)
 app.include_router(ready_router)
 
+
 @app.get("/")
 async def root() -> dict[str, str]:
     return {"service": "raghvi-backend", "status": "running"}
