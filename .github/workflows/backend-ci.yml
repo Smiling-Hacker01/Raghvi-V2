@@ -1,0 +1,113 @@
+name: Backend CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  lint-and-format:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.26"
+
+      - name: Install Python
+        working-directory: backend
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --locked
+
+      - name: Ruff lint
+        working-directory: backend
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        working-directory: backend
+        run: uv run ruff format --check .
+
+  test:
+    name: Tests (PostgreSQL + Alembic)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: raghvi
+          POSTGRES_PASSWORD: raghvi_ci_password
+          POSTGRES_DB: raghvi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U raghvi -d raghvi"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DATABASE_URL: postgresql+asyncpg://raghvi:raghvi_ci_password@localhost:5432/raghvi
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.26"
+
+      - name: Install Python
+        working-directory: backend
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --locked
+
+      - name: Apply Alembic migrations
+        working-directory: backend
+        run: uv run alembic upgrade head
+
+      - name: Run tests
+        working-directory: backend
+        run: uv run pytest -v
+
+  docker-build:
+    name: Docker Build Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t raghvi-backend:ci ./backend
+
+      - name: Smoke test container
+        run: |
+          docker run -d --name raghvi-backend-ci -p 8000:8000 \
+            -e DATABASE_URL=postgresql+asyncpg://raghvi:pass@localhost:5432/raghvi \
+            raghvi-backend:ci
+          sleep 3
+          curl -f http://127.0.0.1:8000/health
+          docker logs raghvi-backend-ci
+
+      - name: Stop container
+        if: always()
+        run: docker stop raghvi-backend-ci || true
+
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
