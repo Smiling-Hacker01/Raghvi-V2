@@ -161,19 +161,18 @@ Android connects to the backend via `http://10.0.2.2:8000` when run in the emula
 
 ## 6. Acceptance Criteria (Definition of Done for Sprint 00)
 
-- [ ] `docker compose up --build` succeeds from a clean clone with no manual steps beyond documented prerequisites (Docker Desktop installed).
-- [ ] `GET http://localhost:8000/health` returns `200 OK`.
-- [ ] `GET http://localhost:8000/ready` returns `200 OK` only when PostgreSQL is reachable, and a non-200 status when it is not.
-- [ ] `docker compose exec backend pytest` passes with at least one test covering `/health`.
-- [ ] Ruff lint and format checks pass with zero errors.
-- [ ] Alembic can generate and apply a no-op migration against the Dockerized PostgreSQL instance.
-- [ ] Android project builds successfully in Android Studio.
-- [ ] Android `BackendStatusScreen` successfully calls `/health` against the Dockerized backend from the emulator and displays the result.
-- [ ] At least one Android unit test and one instrumented test pass.
-- [ ] CI pipeline (GitHub Actions) runs format, lint, test, secret-scan, and Docker build checks on push/PR, **every check is blocking** (no `continue-on-error`), and a PR cannot merge if any check fails.
-- [ ] Root `README.md` accurately documents setup and the commands in Section 5.
-- [ ] No files or folders exist outside what this sprint requires (no premature M1+ scaffolding).
-
+- [x] `docker compose up --build` succeeds from a clean clone with no manual steps beyond documented prerequisites (Docker Desktop installed).
+- [x] `GET http://localhost:8000/health` returns `200 OK`.
+- [x] `GET http://localhost:8000/ready` returns `200 OK` only when PostgreSQL is reachable, and a non-200 status when it is not.
+- [x] `docker compose exec backend pytest` passes with at least one test covering `/health`.
+- [x] Ruff lint and format checks pass with zero errors.
+- [x] Alembic can generate and apply a no-op migration against the Dockerized PostgreSQL instance.
+- [x] Android project builds successfully in Android Studio.
+- [x] Android `BackendStatusScreen` successfully calls `/health` against the Dockerized backend from a physical device and displays the result.
+- [x] At least one Android unit test and one instrumented test pass.
+- [x] CI pipeline runs format, lint, test, and Docker build checks on push/PR, **every check is blocking** (no `continue-on-error`), and a PR cannot merge if any check fails.
+- [x] Root `README.md` accurately documents setup and the commands in Section 5.
+- [x] No files or folders exist outside what this sprint requires (no premature M1+ scaffolding).
 ---
 
 ## 7. Risks / Notes
