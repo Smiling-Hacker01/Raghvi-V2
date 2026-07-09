@@ -3,7 +3,7 @@
 **Status:** Living Document
 **Owner:** Vishal Singh Kushwaha
 **Created:** 2026-07-02
-**Last Updated:** 2026-07-02
+**Last Updated:** 2026-07-08
 
 ## Purpose
 
@@ -67,6 +67,7 @@ Anything outside this focus should be parked unless a new decision explicitly ch
 | Image generation              | North Star    | Supports creative tasks.                                        | Does not strengthen the core memory-and-continuity loop.                              | Only if user research shows strong demand.                         |
 | Multi-agent workflows         | North Star    | Could support specialized planning and execution.               | Adds orchestration complexity before the single-agent loop is proven.                 | After ADR-002 and a stable single-agent architecture.              |
 | Plugin ecosystem              | North Star    | Lets third parties extend Raghvi.                               | Requires stable APIs, sandboxing, and security review.                                | After internal tool APIs are mature.                               |
+| Hands-free voice coding agent | North Star    | Lets users build applications entirely through conversational voice commands while away from keyboard. Raghvi gathers requirements, creates repos, writes code, tests, and asks clarifying questions midway. | Requires advanced voice streaming, robust agentic autonomous coding, complex state management, and reliable testing loops without manual intervention. | After voice conversations, text-based coding assistance, and multi-agent workflows are mature. |
 
 ## Parked Engineering Ideas
 
