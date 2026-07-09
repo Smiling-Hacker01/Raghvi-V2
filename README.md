@@ -2,7 +2,7 @@
 
 Raghvi is a personal AI assistant project: an Android-first companion backed by a Python/FastAPI service, built as a modular monolith with PostgreSQL as its primary datastore.
 
-This repository is currently in **Sprint 00 (Milestone M0 — Repository and Development Foundation)**. At this stage, the project provides a working local development environment (Docker Compose, FastAPI skeleton, database connectivity checks, migrations, linting, and tests) — no user-facing features (auth, chat, memory, etc.) exist yet. See `docs/05-sprints/sprint-00-foundation.md` for full sprint scope, and `docs/04-implementations/mvp-delivery-plan.md` for the overall milestone roadmap.
+This repository is currently moving through **Sprint 01 (Milestone M1 - Identity and Secure API Foundation)**. The project provides a working local development environment, Android scaffold, database connectivity checks, migrations, linting, tests, and the first backend authentication endpoints. See `docs/05-sprints/sprint-o1-auth.md` for current sprint scope, and `docs/04-implementations/mvp-delivery-plan.md` for the overall milestone roadmap.
 
 ## Architecture (current)
 
@@ -10,7 +10,7 @@ This repository is currently in **Sprint 00 (Milestone M0 — Repository and Dev
 - **Dependency management:** [`uv`](https://docs.astral.sh/uv/)
 - **Linting/formatting:** Ruff
 - **Local orchestration:** Docker Compose
-- **Android client:** not yet scaffolded (planned later in M0)
+- **Android client:** Kotlin/Compose scaffold
 
 ## Prerequisites
 
@@ -88,12 +88,25 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
+## Backend Auth API
+
+Sprint 01 adds token-based authentication:
+
+- `POST /auth/signup` creates a user and returns `access_token`, `refresh_token`, and `token_type`.
+- `POST /auth/login` accepts username or email plus password and returns a new token pair.
+- `POST /auth/refresh` validates and rotates a refresh token. The old refresh token is revoked.
+- `POST /auth/logout` revokes the submitted refresh token.
+- `POST /auth/revoke-all` revokes all active refresh tokens for the authenticated user.
+- `GET /auth/me` returns the current user profile and requires `Authorization: Bearer <access_token>`.
+
+Access tokens expire after 10 minutes by default. Refresh tokens expire after 14 days by default and are stored in the database as SHA-256 hashes, never as plaintext.
+
 ## Project Structure
 
 ```text
 Raghvi-V2-The-AI-Assistant/
 ├── backend/            # FastAPI service (Python, uv, SQLAlchemy, Alembic)
-├── android/            # Android client (Kotlin/Compose) — not yet scaffolded
+├── android/            # Android client (Kotlin/Compose)
 ├── docs/               # Product, architecture, decisions, sprint plans
 ├── infrastructure/     # (reserved for future infra-as-code)
 ├── tests/              # Cross-system tests only (e2e, contract, fixtures)
