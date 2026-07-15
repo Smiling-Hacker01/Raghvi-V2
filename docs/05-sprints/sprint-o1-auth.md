@@ -161,26 +161,26 @@ No chat, memory, tasks, or proactive features yet — authentication only.
 
 ## 5. Acceptance Criteria (Definition of Done for Sprint 01)
 
-- [ ] User model with username/email/password_hash/name/phone/preferences exists in DB with unique constraints
-- [ ] Argon2id hashing works: hash + verify flow passes tests
-- [ ] Signup endpoint creates user, returns access + refresh tokens
-- [ ] Login endpoint verifies credentials, returns access + refresh tokens
-- [ ] Refresh token rotation works: old token revoked, new token issued
-- [ ] Logout revokes the refresh token (confirmed in DB)
-- [ ] Access token expires in ~10 minutes; refresh token in ~14 days
-- [ ] Protected endpoints require valid access token (401 if missing/expired/invalid)
-- [ ] Refresh with expired/revoked token returns 401, forces re-login
-- [ ] `/health` and `/ready` remain public (no auth required)
-- [ ] Android LoginScreen renders correctly
-- [ ] TokenManager encrypts/decrypts tokens via Android Keystore (not plaintext)
-- [ ] BiometricManager enforces 30-second re-auth window
-- [ ] AuthInterceptor attaches access token to requests
-- [ ] AuthInterceptor handles 401: attempts refresh, retries request, or forces re-login if refresh fails
-- [ ] Android navigation: unauthenticated users see LoginScreen; authenticated users see main screen placeholder
-- [ ] All backend auth tests pass (signup, login, refresh, logout, revocation, token expiry)
-- [ ] All Android token/biometric/login tests pass
-- [ ] CI pipeline still passes (no regressions in existing tests)
-- [ ] Root README updated with auth endpoint documentation
+- [x] User model with username/email/password_hash/name/phone/preferences exists in DB with unique constraints
+- [x] Argon2id hashing works: hash + verify flow passes tests
+- [x] Signup endpoint creates user, returns access + refresh tokens
+- [x] Login endpoint verifies credentials, returns access + refresh tokens
+- [x] Refresh token rotation works: old token revoked, new token issued
+- [x] Logout revokes the refresh token (confirmed in DB)
+- [x] Access token expires in ~10 minutes; refresh token in ~14 days
+- [x] Protected endpoints require valid access token (401 if missing/expired/invalid)
+- [x] Refresh with expired/revoked token returns 401, forces re-login
+- [x] `/health` and `/ready` remain public (no auth required)
+- [x] Android LoginScreen renders correctly
+- [x] TokenManager encrypts/decrypts tokens via Android Keystore (not plaintext)
+- [x] BiometricManager enforces 30-second re-auth window
+- [x] AuthInterceptor attaches access token to requests
+- [x] AuthInterceptor handles 401: attempts refresh, retries request, or forces re-login if refresh fails
+- [x] Android navigation: unauthenticated users see LoginScreen; authenticated users see main screen placeholder
+- [x] All backend auth tests pass (signup, login, refresh, logout, revocation, token expiry)
+- [x] All Android token/biometric/login tests pass
+- [x] CI pipeline still passes (no regressions in existing tests)
+- [x] Root README updated with auth endpoint documentation
 
 ---
 
