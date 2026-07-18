@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     # Database
     database_url: str
 
+     # JWT / Authentication
+    jwt_secret_key: str
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 30
+
     # AI Provider
     ai_provider: str = "openai"
     openai_api_key: str = ""
