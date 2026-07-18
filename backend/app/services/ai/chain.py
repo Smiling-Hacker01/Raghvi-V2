@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from app.core.config import get_settings
 from app.services.ai.adapter import AIProviderAdapter
@@ -9,10 +8,10 @@ logger = logging.getLogger(__name__)
 
 class AIProviderChain:
     """Multi-provider failover chain.
-    
+
     Tries providers in order. If one fails (quota, timeout, error),
     silently falls back to next provider. User never knows.
-    
+
     System prompt and context are passed to every provider attempt,
     ensuring consistent Raghvi personality regardless of which model responds.
     """
@@ -20,34 +19,33 @@ class AIProviderChain:
     def __init__(self):
         settings = get_settings()
         self.primary_provider = settings.ai_provider.lower()
-        
+
         logger.info("=" * 60)
         logger.info("Initializing AIProviderChain")
         logger.info(f"Primary provider configured: {self.primary_provider}")
         logger.info(f"OpenAI API key present: {bool(settings.openai_api_key)}")
         logger.info(f"Gemini API key present: {bool(settings.gemini_api_key)}")
         logger.info("=" * 60)
-        
+
         # Build provider chain (order matters)
         self.provider_chain = self._build_chain()
-        
+
         if not self.provider_chain:
             raise ValueError(
                 f"No valid AI providers configured. "
                 f"Primary: {self.primary_provider}. "
                 f"Please configure at least one AI provider API key."
             )
-        
+
         logger.info(f"Provider chain ready with: {self.get_available_providers()}")
 
     def _build_chain(self) -> list[tuple[str, AIProviderAdapter]]:
         """Build provider chain in order of preference.
-        
+
         Returns:
             List of (provider_name, adapter) tuples in order to try
         """
         chain = []
-        settings = get_settings()
         primary = self.primary_provider
 
         logger.info(f"Building provider chain starting with primary: {primary}")
@@ -61,13 +59,11 @@ class AIProviderChain:
                 logger.info(f"✓ Successfully loaded primary provider: {primary}")
             else:
                 logger.warning(
-                    f"Primary provider {primary} not configured "
-                    f"(API key missing or invalid)"
+                    f"Primary provider {primary} not configured (API key missing or invalid)"
                 )
         except Exception as e:
             logger.error(
-                f"Failed to load primary provider {primary}: "
-                f"{type(e).__name__}: {str(e)[:100]}"
+                f"Failed to load primary provider {primary}: {type(e).__name__}: {str(e)[:100]}"
             )
 
         # Add fallback providers (any not already in chain)
@@ -76,7 +72,7 @@ class AIProviderChain:
             if provider == primary:
                 # Skip primary, already attempted
                 continue
-            
+
             try:
                 logger.info(f"Attempting to load fallback provider: {provider}")
                 adapter = self._load_provider(provider)
@@ -85,8 +81,7 @@ class AIProviderChain:
                     logger.info(f"✓ Successfully loaded fallback provider: {provider}")
                 else:
                     logger.info(
-                        f"Fallback provider {provider} not configured "
-                        f"(API key missing or invalid)"
+                        f"Fallback provider {provider} not configured (API key missing or invalid)"
                     )
             except Exception as e:
                 logger.warning(
@@ -97,15 +92,15 @@ class AIProviderChain:
         logger.info(f"Final provider chain: {[name for name, _ in chain]}")
         return chain
 
-    def _load_provider(self, provider_name: str) -> Optional[AIProviderAdapter]:
+    def _load_provider(self, provider_name: str) -> AIProviderAdapter | None:
         """Load a specific provider adapter.
-        
+
         Args:
             provider_name: Name of provider (openai, gemini)
-            
+
         Returns:
             Adapter instance if valid and configured, None if not configured
-            
+
         Raises:
             Exception: If provider is configured but fails to load
         """
@@ -117,10 +112,11 @@ class AIProviderChain:
             if not settings.openai_api_key:
                 logger.debug("OpenAI API key not configured")
                 return None
-            
+
             logger.debug("Loading OpenAI adapter...")
             try:
                 from app.services.ai.providers.openai import OpenAIAdapter
+
                 adapter = OpenAIAdapter()
                 logger.debug(f"OpenAI adapter loaded: model={adapter.model}")
                 return adapter
@@ -133,10 +129,11 @@ class AIProviderChain:
             if not settings.gemini_api_key:
                 logger.debug("Gemini API key not configured")
                 return None
-            
+
             logger.debug("Loading Gemini adapter...")
             try:
                 from app.services.ai.providers.gemini import GeminiAdapter
+
                 adapter = GeminiAdapter()
                 logger.debug(f"Gemini adapter loaded: model={adapter.model}")
                 return adapter
@@ -155,19 +152,19 @@ class AIProviderChain:
         temperature: float = 0.7,
     ) -> tuple[str, int, str]:
         """Send message with automatic failover to next provider on error.
-        
+
         User never knows which model responds. Same system prompt (Raghvi personality)
         is used for every attempt, ensuring consistent voice.
-        
+
         Args:
             messages: Conversation history
             system_prompt: System prompt (Raghvi's personality)
             max_tokens: Max tokens in response
             temperature: Sampling temperature
-            
+
         Returns:
             Tuple of (response_text, tokens_used, provider_used)
-            
+
         Raises:
             RuntimeError: Only if ALL providers fail
         """
@@ -192,8 +189,7 @@ class AIProviderChain:
                 )
 
                 logger.info(
-                    f"✓ Message successfully generated via {provider_name} "
-                    f"({tokens} tokens)"
+                    f"✓ Message successfully generated via {provider_name} ({tokens} tokens)"
                 )
                 return response, tokens, provider_name
 
@@ -217,7 +213,7 @@ class AIProviderChain:
 
     def get_available_providers(self) -> list[str]:
         """Get list of available AI providers.
-        
+
         Returns:
             List of provider names currently configured and available
             (e.g., ["openai", "gemini"])

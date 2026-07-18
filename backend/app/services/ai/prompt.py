@@ -11,16 +11,16 @@ def build_system_prompt(
     user_memories: list[str],
 ) -> str:
     """Build the system prompt for Raghvi.
-    
+
     Args:
         user_name: User's name (e.g., "Alice")
         user_profile: User's background/context (e.g., "software engineer")
         user_memories: List of user's approved memories
-        
+
     Returns:
         Complete system prompt for LLM
     """
-    
+
     memories_text = ""
     if user_memories:
         memories_list = "\n".join(f"- {m}" for m in user_memories)
@@ -62,7 +62,7 @@ You're {user_name}'s friend. Act like it."""
 
 def get_error_response() -> str:
     """Get friendly error response when ALL providers fail.
-    
+
     Never technical, always Raghvi's voice.
     """
     responses = [
@@ -72,6 +72,7 @@ def get_error_response() -> str:
         "Something's a bit fuzzy right now. Can you try that again?",
         "I got distracted—what were you saying?",
     ]
-    
+
     import random
+
     return random.choice(responses)

@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 
 class GeminiAdapter(AIProviderAdapter):
     """Google Gemini provider adapter.
-    
+
     Implements AIProviderAdapter for Google's Gemini API (google-genai v0.3+).
     """
 
     def __init__(self):
         settings = get_settings()
-        
+
         self.api_key = settings.gemini_api_key
         self.model = settings.gemini_model
         self.timeout = settings.gemini_timeout_seconds
@@ -35,9 +35,7 @@ class GeminiAdapter(AIProviderAdapter):
             raise ValueError("GEMINI_API_KEY environment variable not set")
 
         if not self.api_key.startswith("AIzaSy"):
-            raise ValueError(
-                "GEMINI_API_KEY format is invalid (should start with 'AIzaSy')"
-            )
+            raise ValueError("GEMINI_API_KEY format is invalid (should start with 'AIzaSy')")
 
         return True
 
@@ -63,16 +61,16 @@ class GeminiAdapter(AIProviderAdapter):
         temperature: float = 0.7,
     ) -> tuple[str, int]:
         """Send messages to Gemini and get response.
-        
+
         Args:
             messages: Conversation history
             system_prompt: System prompt for personality/context
             max_tokens: Max tokens in response
             temperature: Sampling temperature
-            
+
         Returns:
             Tuple of (response_text, tokens_used)
-            
+
         Raises:
             Exception: If LLM call fails
         """
@@ -80,9 +78,7 @@ class GeminiAdapter(AIProviderAdapter):
 
         for attempt in range(self.max_retries):
             try:
-                logger.debug(
-                    f"Gemini API call (attempt {attempt + 1}/{self.max_retries})"
-                )
+                logger.debug(f"Gemini API call (attempt {attempt + 1}/{self.max_retries})")
 
                 # Build message history for Gemini
                 # Format: combine system prompt + conversation
@@ -104,14 +100,12 @@ class GeminiAdapter(AIProviderAdapter):
                 )
 
                 response_text = response or ""
-                tokens_used = (
-                    self._count_tokens(conversation_text)
-                    + self._count_tokens(response_text)
+                tokens_used = self._count_tokens(conversation_text) + self._count_tokens(
+                    response_text
                 )
 
                 logger.debug(
-                    f"Gemini response received: {len(response_text)} chars, "
-                    f"~{tokens_used} tokens"
+                    f"Gemini response received: {len(response_text)} chars, ~{tokens_used} tokens"
                 )
                 return response_text, tokens_used
 
@@ -122,20 +116,16 @@ class GeminiAdapter(AIProviderAdapter):
                     f"{type(e).__name__}: {str(e)[:100]}"
                 )
                 if attempt < self.max_retries - 1:
-                    wait_time = self.retry_delay * (2 ** attempt)
+                    wait_time = self.retry_delay * (2**attempt)
                     await asyncio.sleep(wait_time)
 
         # All retries exhausted
-        logger.error(
-            f"Gemini API failed after {self.max_retries} attempts: {last_error}"
-        )
+        logger.error(f"Gemini API failed after {self.max_retries} attempts: {last_error}")
         raise last_error or Exception("Gemini API call failed")
 
-    def _call_gemini(
-        self, prompt: str, max_tokens: int, temperature: float
-    ) -> str:
+    def _call_gemini(self, prompt: str, max_tokens: int, temperature: float) -> str:
         """Synchronous wrapper for Gemini API call.
-        
+
         Called via asyncio.to_thread() to avoid blocking.
         """
         try:
@@ -148,7 +138,7 @@ class GeminiAdapter(AIProviderAdapter):
                     top_p=0.95,
                 ),
             )
-            
+
             return response.text if response else ""
         except Exception as e:
             logger.error(f"Gemini generate_content failed: {e}")

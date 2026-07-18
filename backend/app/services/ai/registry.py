@@ -1,5 +1,4 @@
 import os
-from importlib import import_module
 
 from app.services.ai.adapter import AIProviderAdapter
 
@@ -60,12 +59,14 @@ def _register_builtin_providers() -> None:
     """Register default providers. Called at module import."""
     try:
         from app.services.ai.providers.openai import OpenAIAdapter
+
         AIProviderRegistry.register("openai", OpenAIAdapter)
     except ImportError:
         pass
 
     try:
         from app.services.ai.providers.gemini import GeminiAdapter
+
         AIProviderRegistry.register("gemini", GeminiAdapter)
     except ImportError:
         pass

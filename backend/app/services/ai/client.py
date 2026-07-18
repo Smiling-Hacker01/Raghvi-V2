@@ -1,7 +1,7 @@
 import logging
 
-from app.services.ai.errors import AIConfigurationError, AIProviderFailureError
 from app.services.ai.chain import AIProviderChain
+from app.services.ai.errors import AIConfigurationError, AIProviderFailureError
 
 logger = logging.getLogger(__name__)
 
@@ -11,13 +11,13 @@ class AIClient:
 
     Uses AIProviderChain for automatic failover across multiple LLM providers.
     User never knows which model is responding - always Raghvi.
-    
+
     Encapsulates chat logic:
     - Building system prompts
     - Managing conversation context
     - Calling the LLM via provider chain (automatic failover)
     - Error handling with friendly responses
-    
+
     Never touches provider-specific code directly.
     """
 
@@ -52,7 +52,7 @@ class AIClient:
 
         Returns:
             Tuple of (response_text, tokens_used, provider_used)
-            
+
             Note: provider_used is for internal logging only.
                   Never expose this to the user.
 
@@ -74,10 +74,10 @@ class AIClient:
                 max_tokens=max_tokens,
                 temperature=temperature,
             )
-            
+
             # Log which provider was used (internal only, for monitoring)
             logger.info(f"Message generated via AI provider: {provider}")
-            
+
             return response, tokens, provider
 
         except RuntimeError as exc:
@@ -102,10 +102,10 @@ class AIClient:
 
     def get_available_providers(self) -> list[str]:
         """Get list of available AI providers.
-        
+
         For internal monitoring/logging only.
         Never expose to user.
-        
+
         Returns:
             List of provider names (e.g., ["openai", "gemini"])
         """
@@ -113,15 +113,15 @@ class AIClient:
 
     def get_model_info(self) -> dict:
         """Get info about the primary AI model (for internal use only).
-        
+
         Note: Since we use automatic failover, this returns info about
         the PRIMARY provider only. Fallback providers may have different specs.
-        
+
         Never expose this to user.
         """
         if not self.chain.provider_chain:
             return {"error": "No providers available"}
-        
+
         primary_name, primary_adapter = self.chain.provider_chain[0]
         return {
             **primary_adapter.get_model_info(),

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class OpenAIAdapter(AIProviderAdapter):
     """OpenAI provider adapter.
-    
+
     Implements AIProviderAdapter for OpenAI's API.
     Handles token counting, retry logic, error handling.
     """
@@ -47,9 +47,7 @@ class OpenAIAdapter(AIProviderAdapter):
             raise ValueError("OPENAI_API_KEY environment variable not set")
 
         if not self.api_key.startswith("sk-"):
-            raise ValueError(
-                "OPENAI_API_KEY format is invalid (should start with 'sk-')"
-            )
+            raise ValueError("OPENAI_API_KEY format is invalid (should start with 'sk-')")
 
         return True
 
@@ -72,9 +70,7 @@ class OpenAIAdapter(AIProviderAdapter):
             # Rough estimate: ~4 chars per token
             return len(text) // 4
 
-    def _build_token_count(
-        self, messages: list[dict[str, str]], response: str
-    ) -> int:
+    def _build_token_count(self, messages: list[dict[str, str]], response: str) -> int:
         """Estimate total tokens used (messages + response).
 
         Note: OpenAI API returns exact token counts in the response,
@@ -119,9 +115,7 @@ class OpenAIAdapter(AIProviderAdapter):
 
         for attempt in range(self.max_retries):
             try:
-                logger.debug(
-                    f"OpenAI API call (attempt {attempt + 1}/{self.max_retries})"
-                )
+                logger.debug(f"OpenAI API call (attempt {attempt + 1}/{self.max_retries})")
 
                 response = await self.client.chat.completions.create(
                     model=self.model,
@@ -135,8 +129,7 @@ class OpenAIAdapter(AIProviderAdapter):
                 tokens_used = self._build_token_count(messages, response_text)
 
                 logger.debug(
-                    f"OpenAI response received: {len(response_text)} chars, "
-                    f"{tokens_used} tokens"
+                    f"OpenAI response received: {len(response_text)} chars, {tokens_used} tokens"
                 )
                 return response_text, tokens_used
 
@@ -144,7 +137,7 @@ class OpenAIAdapter(AIProviderAdapter):
                 last_error = e
                 logger.warning(f"OpenAI timeout (attempt {attempt + 1}): {e}")
                 if attempt < self.max_retries - 1:
-                    wait_time = self.retry_delay * (2 ** attempt)
+                    wait_time = self.retry_delay * (2**attempt)
                     await asyncio.sleep(wait_time)
 
             except RateLimitError as e:
@@ -163,7 +156,7 @@ class OpenAIAdapter(AIProviderAdapter):
                 logger.warning(f"OpenAI rate limit (attempt {attempt + 1}): {e}")
 
                 if attempt < self.max_retries - 1:
-                    wait_time = self.retry_delay * (2 ** attempt)
+                    wait_time = self.retry_delay * (2**attempt)
                     await asyncio.sleep(wait_time)
 
             except AuthenticationError as e:
@@ -184,11 +177,9 @@ class OpenAIAdapter(AIProviderAdapter):
                 last_error = e
                 logger.error(f"OpenAI API error (attempt {attempt + 1}): {e}")
                 if attempt < self.max_retries - 1:
-                    wait_time = self.retry_delay * (2 ** attempt)
+                    wait_time = self.retry_delay * (2**attempt)
                     await asyncio.sleep(wait_time)
 
         # All retries exhausted
-        logger.error(
-            f"OpenAI API failed after {self.max_retries} attempts: {last_error}"
-        )
+        logger.error(f"OpenAI API failed after {self.max_retries} attempts: {last_error}")
         raise last_error or Exception("OpenAI API call failed")
