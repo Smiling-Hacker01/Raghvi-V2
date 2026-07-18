@@ -10,6 +10,7 @@ jobs:
   lint-and-format:
     name: Lint & Format
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -37,6 +38,7 @@ jobs:
   test:
     name: Tests (PostgreSQL + Alembic)
     runs-on: ubuntu-latest
+
     services:
       postgres:
         image: postgres:16-alpine
@@ -51,8 +53,15 @@ jobs:
           --health-interval=5s
           --health-timeout=5s
           --health-retries=10
+
     env:
       DATABASE_URL: postgresql+asyncpg://raghvi:raghvi_ci_password@localhost:5432/raghvi
+
+      JWT_SECRET_KEY: test-secret-key
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 15
+      REFRESH_TOKEN_EXPIRE_DAYS: 30
+
     steps:
       - uses: actions/checkout@v4
 
@@ -80,28 +89,50 @@ jobs:
   docker-build:
     name: Docker Build Validation
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Build backend image
         run: docker build -t raghvi-backend:ci ./backend
 
-      - name: Smoke test container
+      - name: Start backend container
         run: |
-          docker run -d --name raghvi-backend-ci -p 8000:8000 \
+          docker run -d \
+            --name raghvi-backend-ci \
+            -p 8000:8000 \
             -e DATABASE_URL=postgresql+asyncpg://raghvi:pass@localhost:5432/raghvi \
+            -e JWT_SECRET_KEY=test-secret-key \
+            -e JWT_ALGORITHM=HS256 \
+            -e ACCESS_TOKEN_EXPIRE_MINUTES=15 \
+            -e REFRESH_TOKEN_EXPIRE_DAYS=30 \
             raghvi-backend:ci
-          sleep 3
-          curl -f http://127.0.0.1:8000/health
+
+      - name: Wait for backend
+        run: |
+          for i in {1..15}; do
+            if curl -fs http://127.0.0.1:8000/health; then
+              echo "Backend is healthy."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Backend failed to start."
           docker logs raghvi-backend-ci
+          exit 1
 
       - name: Stop container
         if: always()
-        run: docker stop raghvi-backend-ci || true
+        run: |
+          docker logs raghvi-backend-ci || true
+          docker stop raghvi-backend-ci || true
+          docker rm raghvi-backend-ci || true
 
   secret-scan:
     name: Secret Scan
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         with:

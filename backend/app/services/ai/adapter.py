@@ -52,7 +52,7 @@ class AIProviderAdapter(ABC):
 
         Returns:
             Dict with keys like:
-            - model_name: str (e.g., "gpt-4-turbo")
+            - model_name: str (e.g., "gpt-5.5")
             - provider: str (e.g., "openai")
             - max_tokens: int
             - cost_per_1k_tokens: float (optional, for tracking)

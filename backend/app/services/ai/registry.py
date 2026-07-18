@@ -1,5 +1,4 @@
 import os
-from importlib import import_module
 
 from app.services.ai.adapter import AIProviderAdapter
 
@@ -46,13 +45,7 @@ class AIProviderRegistry:
             )
 
         adapter_class = cls._adapters[provider]
-        adapter = adapter_class()
-
-        # Validate on first use
-        if not adapter.validate_config():
-            raise ValueError(f"AI provider '{provider}' is not properly configured")
-
-        cls._instance = adapter
+        cls._instance = adapter_class()
         return cls._instance
 
     @classmethod
@@ -65,10 +58,18 @@ class AIProviderRegistry:
 def _register_builtin_providers() -> None:
     """Register default providers. Called at module import."""
     try:
-        openai_module = import_module("app.services.ai.providers.openai")
-        AIProviderRegistry.register("openai", openai_module.OpenAIAdapter)
-    except (AttributeError, ModuleNotFoundError):
-        pass  # OpenAI provider not installed
+        from app.services.ai.providers.openai import OpenAIAdapter
+
+        AIProviderRegistry.register("openai", OpenAIAdapter)
+    except ImportError:
+        pass
+
+    try:
+        from app.services.ai.providers.gemini import GeminiAdapter
+
+        AIProviderRegistry.register("gemini", GeminiAdapter)
+    except ImportError:
+        pass
 
 
 _register_builtin_providers()
