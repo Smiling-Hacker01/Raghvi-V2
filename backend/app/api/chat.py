@@ -158,17 +158,13 @@ async def get_chat_history(
             limit = 20
         if offset < 0:
             offset = 0
-        
+
         # Get user's conversation
-        conversation = await ChatService.get_or_create_conversation(
-            current_user.id, session
-        )
-        
+        conversation = await ChatService.get_or_create_conversation(current_user.id, session)
+
         # Get total message count
-        total = await ChatService.get_conversation_message_count(
-            conversation.id, session
-        )
-        
+        total = await ChatService.get_conversation_message_count(conversation.id, session)
+
         # Get paginated messages (newest first)
         messages = await session.scalars(
             select(Message)
@@ -177,7 +173,7 @@ async def get_chat_history(
             .offset(offset)
             .limit(limit)
         )
-        
+
         # Convert to response format
         message_list = [
             ChatMessageResponse(
@@ -189,13 +185,13 @@ async def get_chat_history(
             )
             for msg in messages.all()
         ]
-        
+
         # Reverse to get chronological order for client
         message_list.reverse()
-        
+
         # Calculate has_more
         has_more = (offset + limit) < total
-        
+
         logger.info(
             f"Retrieved {len(message_list)} messages for user {user_id} "
             f"(total: {total}, offset: {offset})"
