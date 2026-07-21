@@ -127,3 +127,18 @@ class AIClient:
             **primary_adapter.get_model_info(),
             "available_providers": self.get_available_providers(),
         }
+
+
+_ai_client_instance: AIClient | None = None
+
+
+def get_ai_client() -> AIClient:
+    """Get or create singleton instance of AIClient.
+
+    Reuses provider instances and underlying HTTP connection pools
+    to minimize TLS/TCP handshake latency across requests.
+    """
+    global _ai_client_instance
+    if _ai_client_instance is None:
+        _ai_client_instance = AIClient()
+    return _ai_client_instance
