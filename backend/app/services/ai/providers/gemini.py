@@ -113,7 +113,13 @@ class GeminiAdapter(AIProviderAdapter):
                 last_error = e
                 err_str = str(e)
                 code = getattr(e, "code", None) or getattr(e, "status_code", None)
-                if code == 429 or "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+                is_rate_limit = (
+                    code == 429
+                    or "429" in err_str
+                    or "RESOURCE_EXHAUSTED" in err_str
+                    or "quota" in err_str.lower()
+                )
+                if is_rate_limit:
                     logger.error(f"Gemini 429 Resource Exhausted / quota error (no retry): {e}")
                     raise
 

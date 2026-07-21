@@ -10,11 +10,10 @@ from app.api.auth import get_current_user
 from app.db.session import get_db_session
 from app.models.user import User
 from app.schemas.chat import (
+    ChatHistoryResponse,
     ChatSendRequest,
     ChatSendResponse,
-    ChatHistoryResponse,
     ConversationResponse,
-    ChatMessageResponse,
 )
 from app.services.ai.prompt import get_error_response
 from app.services.chat import ChatService
@@ -123,7 +122,7 @@ async def get_conversation(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to load conversation",
-        )
+        ) from e
 
 
 @router.get("/history", response_model=ChatHistoryResponse)
@@ -160,4 +159,4 @@ async def get_chat_history(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to load chat history",
-        )
+        ) from e

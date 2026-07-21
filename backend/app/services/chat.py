@@ -3,15 +3,15 @@
 import logging
 from uuid import UUID
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import engine
 from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.user import User
-from app.services.ai.prompt import build_system_prompt
 from app.services.ai.client import get_ai_client
+from app.services.ai.prompt import build_system_prompt
 
 logger = logging.getLogger(__name__)
 
