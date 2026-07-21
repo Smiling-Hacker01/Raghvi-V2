@@ -4,13 +4,16 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth import get_current_user
 from app.db.session import get_db_session
+from app.models.message import Message
 from app.models.user import User
 from app.schemas.chat import (
     ChatHistoryResponse,
+    ChatMessageResponse,
     ChatSendRequest,
     ChatSendResponse,
     ConversationResponse,
@@ -127,18 +130,18 @@ async def get_conversation(
 
 @router.get("/history", response_model=ChatHistoryResponse)
 async def get_chat_history(
+    current_user: CurrentUser,
+    session: DbSession,
     limit: int = 20,
     offset: int = 0,
-    current_user: CurrentUser = None,
-    session: DbSession = None,
 ) -> ChatHistoryResponse:
-    """Get conversation history (paginated).
+    """Get conversation history (paginated, newest first).
 
     Protected endpoint (requires valid JWT token).
-    Returns messages in chronological order (newest first).
+    Returns messages in reverse chronological order (newest first).
 
     Args:
-        limit: Max messages per page (default 20)
+        limit: Max messages per page (default 20, max 100)
         offset: Pagination offset (default 0)
         current_user: Current authenticated user
         session: Database session
@@ -146,16 +149,62 @@ async def get_chat_history(
     Returns:
         ChatHistoryResponse with messages, total count, has_more flag
     """
+    user_id = current_user.id
+
     try:
-        # TODO: Implement pagination and sorting
-        # For now, this is a placeholder
-        return ChatHistoryResponse(
-            messages=[],
-            total=0,
-            has_more=False,
+        # Validate pagination params
+        limit = min(limit, 100)  # Cap at 100 to prevent abuse
+        if limit < 1:
+            limit = 20
+        if offset < 0:
+            offset = 0
+
+        # Get user's conversation
+        conversation = await ChatService.get_or_create_conversation(current_user.id, session)
+
+        # Get total message count
+        total = await ChatService.get_conversation_message_count(conversation.id, session)
+
+        # Get paginated messages (newest first)
+        messages = await session.scalars(
+            select(Message)
+            .where(Message.conversation_id == conversation.id)
+            .order_by(Message.created_at.desc())
+            .offset(offset)
+            .limit(limit)
         )
+
+        # Convert to response format
+        message_list = [
+            ChatMessageResponse(
+                id=str(msg.id),
+                role=msg.role,
+                content=msg.content,
+                tokens_used=msg.tokens_used,
+                created_at=msg.created_at.isoformat(),
+            )
+            for msg in messages.all()
+        ]
+
+        # Reverse to get chronological order for client
+        message_list.reverse()
+
+        # Calculate has_more
+        has_more = (offset + limit) < total
+
+        logger.info(
+            f"Retrieved {len(message_list)} messages for user {user_id} "
+            f"(total: {total}, offset: {offset})"
+        )
+
+        return ChatHistoryResponse(
+            messages=message_list,
+            total=total,
+            has_more=has_more,
+        )
+
     except Exception as e:
-        logger.error(f"Failed to load chat history: {e}")
+        logger.error(f"Failed to load chat history for user {user_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to load chat history",

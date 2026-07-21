@@ -4,6 +4,7 @@ import logging
 from uuid import UUID
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import engine
@@ -38,13 +39,23 @@ class ChatService:
         if conversation:
             return conversation
 
-        # Create new conversation
+        # Try to create new conversation
         conversation = Conversation(user_id=user_id, title="Conversation")
         session.add(conversation)
-        await session.flush()  # Get the ID
 
-        logger.info(f"Created new conversation for user {user_id}")
-        return conversation
+        try:
+            await session.commit()  # Persist so subsequent requests see the same conversation
+            await session.refresh(conversation)
+            logger.info(f"Created new conversation for user {user_id}")
+            return conversation
+        except IntegrityError:
+            # Another request created it simultaneously — fetch it
+            await session.rollback()
+            conversation = await session.scalar(
+                select(Conversation).where(Conversation.user_id == user_id)
+            )
+            logger.info(f"Conversation already exists for user {user_id}")
+            return conversation
 
     @staticmethod
     async def get_recent_messages(
