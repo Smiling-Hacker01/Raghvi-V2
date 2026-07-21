@@ -8,7 +8,9 @@ from app.db.base import Base
 
 
 def get_utc_now():
-    return datetime.now(UTC)
+    # Return naive UTC datetime to satisfy asyncpg's TIMESTAMP WITHOUT TIME ZONE
+    # while avoiding the Python 3.12+ datetime.utcnow() deprecation warning
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class Conversation(Base):
