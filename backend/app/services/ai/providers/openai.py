@@ -141,23 +141,8 @@ class OpenAIAdapter(AIProviderAdapter):
                     await asyncio.sleep(wait_time)
 
             except RateLimitError as e:
-                error_body = getattr(e, "body", {}) or {}
-                error = error_body.get("error", {})
-                error_code = error.get("code")
-
-                if error_code == "insufficient_quota":
-                    logger.error("OpenAI project has insufficient quota")
-                    raise ValueError(
-                        "The AI service is temporarily unavailable because the configured "
-                        "OpenAI project has no remaining API quota."
-                    ) from e
-
-                last_error = e
-                logger.warning(f"OpenAI rate limit (attempt {attempt + 1}): {e}")
-
-                if attempt < self.max_retries - 1:
-                    wait_time = self.retry_delay * (2**attempt)
-                    await asyncio.sleep(wait_time)
+                logger.error(f"OpenAI 429 RateLimit / quota error (no retry): {e}")
+                raise
 
             except AuthenticationError as e:
                 logger.error(f"OpenAI authentication failed: {e}")

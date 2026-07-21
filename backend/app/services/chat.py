@@ -11,7 +11,7 @@ from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.user import User
 from app.services.ai.prompt import build_system_prompt
-from app.services.ai.client import AIClient
+from app.services.ai.client import get_ai_client
 
 logger = logging.getLogger(__name__)
 
@@ -113,9 +113,9 @@ class ChatService:
             # 1. Get or create conversation
             conversation = await ChatService.get_or_create_conversation(user_id, session)
 
-            # 2. Get recent messages for context
+            # 2. Get recent messages for context (limit=8 for optimal latency)
             recent_messages = await ChatService.get_recent_messages(
-                conversation.id, limit=20, session=session
+                conversation.id, limit=10, session=session
             )
 
             # 3. Get user profile (name at minimum)
@@ -137,12 +137,12 @@ class ChatService:
             # 6. Add user's new message to context
             context_messages = recent_messages + [{"role": "user", "content": user_message_content}]
 
-            # 7. Call LLM (with automatic failover)
-            client = AIClient()
+            # 7. Call LLM (using singleton client for HTTP connection reuse)
+            client = get_ai_client()
             response_text, tokens_used, provider_used = await client.send_message(
                 messages=context_messages,
                 system_prompt=system_prompt,
-                max_tokens=2000,
+                max_tokens=1000,
                 temperature=0.7,
             )
 

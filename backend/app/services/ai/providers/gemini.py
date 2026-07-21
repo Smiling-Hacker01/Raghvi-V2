@@ -34,8 +34,8 @@ class GeminiAdapter(AIProviderAdapter):
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY environment variable not set")
 
-        if not self.api_key.startswith("AIzaSy"):
-            raise ValueError("GEMINI_API_KEY format is invalid (should start with 'AIzaSy')")
+        if not (self.api_key.startswith("AIzaSy") or self.api_key.startswith("AQ.")):
+            raise ValueError("GEMINI_API_KEY format is invalid")
 
         return True
 
@@ -111,6 +111,12 @@ class GeminiAdapter(AIProviderAdapter):
 
             except Exception as e:
                 last_error = e
+                err_str = str(e)
+                code = getattr(e, "code", None) or getattr(e, "status_code", None)
+                if code == 429 or "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+                    logger.error(f"Gemini 429 Resource Exhausted / quota error (no retry): {e}")
+                    raise
+
                 logger.warning(
                     f"Gemini API error (attempt {attempt + 1}/{self.max_retries}): "
                     f"{type(e).__name__}: {str(e)[:100]}"

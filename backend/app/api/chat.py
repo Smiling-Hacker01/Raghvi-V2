@@ -57,10 +57,12 @@ async def send_message(
             detail="Message cannot be empty",
         )
 
+    user_id = current_user.id
+
     try:
         # Call chat service (handles all orchestration)
         result = await ChatService.send_message(
-            user_id=current_user.id,
+            user_id=user_id,
             user_message_content=request.content,
             session=session,
         )
@@ -69,7 +71,7 @@ async def send_message(
 
     except ValueError as e:
         # Configuration/validation error
-        logger.error(f"Chat validation error: {e}")
+        logger.error(f"Chat validation error for user {user_id}: {e}")
         # Return friendly error response
         return ChatSendResponse(
             user_message=request.content,
@@ -79,7 +81,7 @@ async def send_message(
 
     except Exception as e:
         # LLM provider error (all failed)
-        logger.error(f"Chat LLM error for user {current_user.id}: {e}")
+        logger.error(f"Chat LLM error for user {user_id}: {e}")
         # Return friendly error response
         return ChatSendResponse(
             user_message=request.content,
