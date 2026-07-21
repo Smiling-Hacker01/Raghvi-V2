@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, Uuid
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -10,9 +10,9 @@ from app.db.base import Base
 class Message(Base):
     __tablename__ = "messages"
 
-    id = Column(Uuid, primary_key=True, default=uuid4)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     conversation_id = Column(
-        Uuid,
+        String(36),
         ForeignKey("conversations.id", ondelete="CASCADE"),
         nullable=False,
         index=True,

@@ -24,6 +24,7 @@ dev = [
     "ruff>=0.8",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
+    "pytest-cov>=5.0",
     "httpx>=0.28",
 ]
 
@@ -45,3 +46,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=70"
+markers = [
+    "integration: Integration tests",
+]
