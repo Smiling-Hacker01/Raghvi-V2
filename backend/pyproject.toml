@@ -47,6 +47,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "--cov=app --cov-report=term-missing --cov-fail-under=70"
+
 markers = [
     "integration: Integration tests",
 ]

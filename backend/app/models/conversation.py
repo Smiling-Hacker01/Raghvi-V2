@@ -1,10 +1,14 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlalchemy import Column, DateTime, String
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
+
+
+def get_utc_now():
+    return datetime.now(timezone.utc)
 
 
 class Conversation(Base):
@@ -17,8 +21,8 @@ class Conversation(Base):
     # TODO: Unify to native Uuid(as_uuid=True) across all models in a future sprint.
     user_id = Column(String(36), nullable=False, unique=True, index=True)
     title = Column(String(255), default="Conversation")
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=get_utc_now)
+    updated_at = Column(DateTime, nullable=False, default=get_utc_now, onupdate=get_utc_now)
 
     # Relationship to messages (lazy load)
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
