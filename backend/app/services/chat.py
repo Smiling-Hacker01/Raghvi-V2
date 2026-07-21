@@ -42,7 +42,7 @@ class ChatService:
         # Try to create new conversation
         conversation = Conversation(user_id=user_id, title="Conversation")
         session.add(conversation)
-        
+
         try:
             await session.commit()  # Persist so subsequent requests see the same conversation
             await session.refresh(conversation)

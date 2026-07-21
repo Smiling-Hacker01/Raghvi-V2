@@ -18,9 +18,7 @@ class Conversation(Base):
     user_id = Column(String(36), nullable=False, unique=True, index=True)
     title = Column(String(255), default="Conversation")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
-    )
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationship to messages (lazy load)
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
