@@ -142,4 +142,3 @@ def get_ai_client() -> AIClient:
     if _ai_client_instance is None:
         _ai_client_instance = AIClient()
     return _ai_client_instance
-
