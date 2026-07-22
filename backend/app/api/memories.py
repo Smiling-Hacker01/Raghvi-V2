@@ -10,11 +10,11 @@ from app.api.auth import get_current_user
 from app.db.session import get_db_session
 from app.models.user import User
 from app.schemas.memory import (
-    MemoryCreateRequest,
-    MemoryResponse,
-    MemoryDetectionResponse,
     MemoryApprovalRequest,
+    MemoryCreateRequest,
+    MemoryDetectionResponse,
     MemoryListResponse,
+    MemoryResponse,
     MemoryStatsResponse,
 )
 from app.services.memory.service import MemoryService
@@ -35,12 +35,12 @@ async def create_memory(
     session: DbSession,
 ) -> MemoryDetectionResponse:
     """Create a new memory.
-    
+
     Auto-approval logic:
     - PUBLIC (non-sensitive): Auto-approved immediately
     - SENSITIVE (email, phone, address): Pending user approval
     - CRITICAL (password, card, SSN): Never auto-approved, flagged
-    
+
     Returns detection analysis along with created memory.
     """
     try:
@@ -49,15 +49,15 @@ async def create_memory(
             content=request.content,
             session=session,
         )
-        
+
         # Commit to database
         await session.commit()
-        
+
         logger.info(
             f"Memory created for user {current_user.id}: "
             f"id={memory.id}, auto_approved={is_auto_approved}"
         )
-        
+
         return MemoryDetectionResponse(
             memory=MemoryResponse(
                 id=str(memory.id),
@@ -75,7 +75,7 @@ async def create_memory(
             matched_rules=detection["matched_rules"],
             reason=detection["reason"],
         )
-        
+
     except ValueError as e:
         logger.warning(f"Memory creation validation failed: {e}")
         raise HTTPException(
@@ -98,24 +98,24 @@ async def list_approved_memories(
     session: DbSession = None,
 ) -> MemoryListResponse:
     """Get approved (active) memories for current user.
-    
+
     Query parameters:
     - limit: Max memories to return (default 50, max 1000)
     """
     try:
         limit = min(limit, 1000)
-        
+
         memories = await MemoryService.get_approved_memories(
             user_id=str(current_user.id),
             limit=limit,
             session=session,
         )
-        
+
         stats = await MemoryService.get_memory_stats(
             user_id=str(current_user.id),
             session=session,
         )
-        
+
         return MemoryListResponse(
             memories=[
                 MemoryResponse(
@@ -133,7 +133,7 @@ async def list_approved_memories(
             pending_count=stats["pending"],
             deleted_count=stats["deleted"],
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to list memories: {e}", exc_info=True)
         raise HTTPException(
@@ -148,7 +148,7 @@ async def list_pending_memories(
     session: DbSession,
 ) -> MemoryListResponse:
     """Get pending memories awaiting user approval.
-    
+
     These are sensitive memories that Raghvi learned but user must approve
     before they're stored.
     """
@@ -157,12 +157,12 @@ async def list_pending_memories(
             user_id=str(current_user.id),
             session=session,
         )
-        
+
         stats = await MemoryService.get_memory_stats(
             user_id=str(current_user.id),
             session=session,
         )
-        
+
         return MemoryListResponse(
             memories=[
                 MemoryResponse(
@@ -180,7 +180,7 @@ async def list_pending_memories(
             pending_count=stats["pending"],
             deleted_count=stats["deleted"],
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to list pending memories: {e}", exc_info=True)
         raise HTTPException(
@@ -197,10 +197,10 @@ async def approve_or_reject_memory(
     session: DbSession,
 ) -> MemoryResponse:
     """Approve or reject a pending memory.
-    
+
     Path parameters:
     - memory_id: UUID of memory to approve/reject
-    
+
     Body:
     - approved: true to approve, false to reject
     """
@@ -213,7 +213,7 @@ async def approve_or_reject_memory(
                 session=session,
             )
             logger.info(f"Memory {memory_id} approved by user {current_user.id}")
-            
+
             return MemoryResponse(
                 id=str(memory.id),
                 content=memory.content,
@@ -230,11 +230,11 @@ async def approve_or_reject_memory(
                 session=session,
             )
             logger.info(f"Memory {memory_id} rejected by user {current_user.id}")
-            
+
             raise HTTPException(
                 status_code=status.HTTP_204_NO_CONTENT,
             )
-        
+
     except ValueError as e:
         logger.warning(f"Memory approval error: {e}")
         raise HTTPException(
@@ -259,7 +259,7 @@ async def delete_memory(
     session: DbSession,
 ) -> None:
     """Delete an approved memory.
-    
+
     Only approved memories can be deleted. To reject a pending memory,
     use the /memories/{memory_id}/approve endpoint with approved=false.
     """
@@ -270,7 +270,7 @@ async def delete_memory(
             session=session,
         )
         logger.info(f"Memory {memory_id} deleted by user {current_user.id}")
-        
+
     except ValueError as e:
         logger.warning(f"Memory deletion error: {e}")
         raise HTTPException(
@@ -292,7 +292,7 @@ async def get_memory_stats(
     session: DbSession,
 ) -> MemoryStatsResponse:
     """Get memory statistics for current user.
-    
+
     Returns:
     - total: All memories (including soft-deleted)
     - approved: Active, approved memories
@@ -305,7 +305,7 @@ async def get_memory_stats(
             session=session,
         )
         return MemoryStatsResponse(**stats)
-        
+
     except Exception as e:
         logger.error(f"Failed to get memory stats: {e}", exc_info=True)
         raise HTTPException(

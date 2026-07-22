@@ -22,7 +22,7 @@ class TestSensitivityEngine:
     def test_public_content_no_approval(self):
         """Test that public content is auto-approved."""
         engine = SensitivityEngine()
-        
+
         public_examples = [
             "I'm a software engineer at Google",
             "I love hiking and photography",
@@ -30,7 +30,7 @@ class TestSensitivityEngine:
             "My favorite food is sushi",
             "I live in California",
         ]
-        
+
         for content in public_examples:
             result = engine.analyze(content)
             assert result.severity_level == "public", f"Failed for: {content}"
@@ -41,7 +41,7 @@ class TestSensitivityEngine:
         """Test that email addresses are flagged as sensitive."""
         engine = SensitivityEngine()
         result = engine.analyze("My email is alice@example.com")
-        
+
         assert result.severity_level == "sensitive"
         assert result.is_sensitive
         assert result.requires_approval
@@ -51,7 +51,7 @@ class TestSensitivityEngine:
         """Test that phone numbers are flagged as sensitive."""
         engine = SensitivityEngine()
         result = engine.analyze("My phone is +1-415-555-1234")
-        
+
         assert result.severity_level == "sensitive"
         assert result.is_sensitive
         assert result.requires_approval
@@ -61,7 +61,7 @@ class TestSensitivityEngine:
         """Test that passwords are critical and never auto-approved."""
         engine = SensitivityEngine()
         result = engine.analyze("password: MySecret123")
-        
+
         assert result.severity_level == "critical"
         assert result.is_sensitive
         assert result.requires_approval
@@ -71,7 +71,7 @@ class TestSensitivityEngine:
         """Test that credit cards are flagged as critical."""
         engine = SensitivityEngine()
         result = engine.analyze("My card: 4111-1111-1111-1111")
-        
+
         assert result.severity_level == "critical"
         assert result.is_sensitive
         assert result.requires_approval
@@ -81,7 +81,7 @@ class TestSensitivityEngine:
         """Test that SSN is critical."""
         engine = SensitivityEngine()
         result = engine.analyze("My SSN: 123-45-6789")
-        
+
         assert result.severity_level == "critical"
         assert result.requires_approval
         assert any(r.rule_name == "ssn" for r in result.matched_rules)
@@ -89,10 +89,8 @@ class TestSensitivityEngine:
     def test_multiple_detections(self):
         """Test detection of multiple sensitive items."""
         engine = SensitivityEngine()
-        result = engine.analyze(
-            "Email: alice@example.com, Phone: 415-555-1234"
-        )
-        
+        result = engine.analyze("Email: alice@example.com, Phone: 415-555-1234")
+
         assert result.is_sensitive
         assert len(result.matched_rules) >= 2
         assert result.total_score >= 50
@@ -100,9 +98,9 @@ class TestSensitivityEngine:
     def test_invalid_content_raises_error(self):
         """Test that invalid content raises ValueError."""
         engine = SensitivityEngine()
-        
+
         invalid_inputs = [None, "", "   ", "ab", "x" * 6000]
-        
+
         for invalid in invalid_inputs:
             with pytest.raises(ValueError):
                 engine.analyze(invalid)
@@ -114,24 +112,24 @@ class TestSensitivityEngine:
             pattern=r"\bCONFIDENTIAL\b",
             severity=RuleSeverity.HIGH,
         )
-        
+
         engine = SensitivityEngine(rules=[custom_rule])
         result = engine.analyze("This is CONFIDENTIAL information")
-        
+
         assert result.is_sensitive
         assert result.requires_approval
 
     def test_disable_rule(self):
         """Test disabling a rule."""
         engine = SensitivityEngine()
-        
+
         # Email initially detected
         result1 = engine.analyze("test@example.com")
         assert result1.is_sensitive
-        
+
         # Disable email rule
         engine.disable_rule("email")
-        
+
         # Now email should not be detected
         result2 = engine.analyze("test@example.com")
         assert not result2.is_sensitive
@@ -140,9 +138,9 @@ class TestSensitivityEngine:
         """Test enabling a disabled rule."""
         engine = SensitivityEngine()
         engine.disable_rule("email")
-        
+
         engine.enable_rule("email")
-        
+
         result = engine.analyze("test@example.com")
         assert result.is_sensitive
 
@@ -153,7 +151,7 @@ class TestSensitivityEngine:
             sensitive_threshold=50,
         )
         engine = SensitivityEngine(config=config)
-        
+
         # Email (50 points) now triggers CRITICAL threshold
         result = engine.analyze("Email: test@example.com")
         assert result.severity_level == "critical"
@@ -161,13 +159,13 @@ class TestSensitivityEngine:
     def test_score_calculation(self):
         """Test that scores are calculated correctly."""
         engine = SensitivityEngine()
-        
+
         public = engine.analyze("I love hiking")
         assert public.total_score < 50
-        
+
         sensitive = engine.analyze("Email: test@example.com")
         assert 50 <= sensitive.total_score < 100
-        
+
         critical = engine.analyze("password: secret")
         assert critical.total_score >= 100
 
@@ -175,7 +173,7 @@ class TestSensitivityEngine:
         """Test that get_sensitivity_engine returns singleton."""
         engine1 = get_sensitivity_engine()
         engine2 = get_sensitivity_engine()
-        
+
         assert engine1 is engine2
 
     def test_reset_engine(self):
@@ -183,7 +181,7 @@ class TestSensitivityEngine:
         engine1 = get_sensitivity_engine()
         reset_engine()
         engine2 = get_sensitivity_engine()
-        
+
         assert engine1 is not engine2
 
     def test_reason_generated_for_user(self):
@@ -221,6 +219,7 @@ class TestSensitivityEngine:
 
     def test_rule_exception_handling(self):
         """Test that a failing rule does not crash the entire engine."""
+
         class FaultyRule(PatternRule):
             def evaluate(self, content: str):
                 raise RuntimeError("Faulty rule error")
@@ -238,7 +237,7 @@ class TestSensitivityEngine:
         assert not card_rule._luhn_check("123")  # Too short
         assert not card_rule._luhn_check("1" * 25)  # Too long
         assert not card_rule._luhn_check("invalid_digits")
-        
+
         # Test credit card rule disabled
         card_rule.enabled = False
         assert card_rule.evaluate("My card: 4111-1111-1111-1111") is None

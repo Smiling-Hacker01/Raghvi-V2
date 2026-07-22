@@ -39,7 +39,7 @@ class TestMemoryService:
                 content="I'm a software engineer at Google",
                 session=session,
             )
-            
+
             assert is_auto_approved is True
             assert memory.is_approved is True
             assert memory.approved_at is not None
@@ -54,7 +54,7 @@ class TestMemoryService:
                 content="My email is alice@example.com",
                 session=session,
             )
-            
+
             assert is_auto_approved is False
             assert memory.is_approved is False
             assert memory.approved_at is None
@@ -70,7 +70,7 @@ class TestMemoryService:
                 content="password: MySecret123",
                 session=session,
             )
-            
+
             assert is_auto_approved is False
             assert not memory.is_approved
             assert detection["severity_level"] == "critical"
@@ -86,7 +86,7 @@ class TestMemoryService:
                 "ab",  # Too short
                 "x" * 6000,  # Too long
             ]
-            
+
             for invalid in invalid_inputs:
                 with pytest.raises(ValueError):
                     await MemoryService.create_memory(
@@ -105,14 +105,14 @@ class TestMemoryService:
                 session=session,
             )
             memory_id = str(memory.id)
-            
+
             # Approve it
             approved = await MemoryService.approve_memory(
                 user_id=user.id,
                 memory_id=memory_id,
                 session=session,
             )
-            
+
             assert approved.is_approved
             assert approved.approved_at is not None
 
@@ -126,7 +126,7 @@ class TestMemoryService:
                 session=session,
             )
             memory_id = str(memory.id)
-            
+
             # Try to approve again
             with pytest.raises(ValueError, match="already approved"):
                 await MemoryService.approve_memory(
@@ -145,18 +145,16 @@ class TestMemoryService:
                 session=session,
             )
             memory_id = str(memory.id)
-            
+
             # Reject it
             await MemoryService.reject_memory(
                 user_id=user.id,
                 memory_id=memory_id,
                 session=session,
             )
-            
+
             # Verify it's soft-deleted
-            rejected = await session.scalar(
-                select(Memory).where(Memory.id == memory.id)
-            )
+            rejected = await session.scalar(select(Memory).where(Memory.id == memory.id))
             assert rejected.deleted_at is not None
 
     async def test_get_approved_memories(self, test_db, user):
@@ -178,20 +176,20 @@ class TestMemoryService:
                 content="Email: test@example.com",
                 session=session,
             )
-            
+
             # Approve the sensitive one
             await MemoryService.approve_memory(
                 user_id=user.id,
                 memory_id=str(sensitive.id),
                 session=session,
             )
-            
+
             # Get approved memories
             approved = await MemoryService.get_approved_memories(
                 user_id=user.id,
                 session=session,
             )
-            
+
             # Should have 3 approved (2 auto-approved + 1 manually approved)
             assert len(approved) == 3
 
@@ -204,27 +202,27 @@ class TestMemoryService:
                 content="I love hiking",
                 session=session,
             )
-            
+
             # Create sensitive (pending)
             memory1, _, _ = await MemoryService.create_memory(
                 user_id=user.id,
                 content="Email: test1@example.com",
                 session=session,
             )
-            
+
             # Create another sensitive (pending)
             memory2, _, _ = await MemoryService.create_memory(
                 user_id=user.id,
                 content="Phone: 415-555-1234",
                 session=session,
             )
-            
+
             # Get pending
             pending = await MemoryService.get_pending_memories(
                 user_id=user.id,
                 session=session,
             )
-            
+
             # Should have 2 pending (only sensitive ones)
             assert len(pending) == 2
 
@@ -242,27 +240,27 @@ class TestMemoryService:
                 content="Email: test@example.com",
                 session=session,
             )
-            
+
             # Approve sensitive
             await MemoryService.approve_memory(
                 user_id=user.id,
                 memory_id=str(sensitive.id),
                 session=session,
             )
-            
+
             # Delete public
             await MemoryService.delete_memory(
                 user_id=user.id,
                 memory_id=str(public.id),
                 session=session,
             )
-            
+
             # Get stats
             stats = await MemoryService.get_memory_stats(
                 user_id=user.id,
                 session=session,
             )
-            
+
             assert stats["total"] == 2
             assert stats["approved"] == 1
             assert stats["pending"] == 0
@@ -278,18 +276,16 @@ class TestMemoryService:
                 session=session,
             )
             memory_id = str(memory.id)
-            
+
             # Delete it
             await MemoryService.delete_memory(
                 user_id=user.id,
                 memory_id=memory_id,
                 session=session,
             )
-            
+
             # Verify soft delete
-            deleted = await session.scalar(
-                select(Memory).where(Memory.id == memory.id)
-            )
+            deleted = await session.scalar(select(Memory).where(Memory.id == memory.id))
             assert deleted.deleted_at is not None
 
     async def test_cannot_delete_pending_memory(self, test_db, user):
@@ -302,7 +298,7 @@ class TestMemoryService:
                 session=session,
             )
             memory_id = str(memory.id)
-            
+
             # Try to delete pending memory
             with pytest.raises(ValueError, match="pending"):
                 await MemoryService.delete_memory(
@@ -320,14 +316,14 @@ class TestMemoryService:
                 session=session,
             )
             memory_id = str(memory.id)
-            
+
             # Get it back
             retrieved = await MemoryService.get_memory_by_id(
                 user_id=user.id,
                 memory_id=memory_id,
                 session=session,
             )
-            
+
             assert retrieved.id == memory.id
             assert retrieved.content == "I love hiking"
 
@@ -341,7 +337,7 @@ class TestMemoryService:
                 session=session,
             )
             memory_id = str(memory.id)
-            
+
             # Try to access with different user ID
             with pytest.raises(ValueError, match="not found"):
                 await MemoryService.get_memory_by_id(

@@ -4,8 +4,8 @@ from fastapi import FastAPI
 
 from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
-from app.api.memories import router as memories_router
 from app.api.health import router as health_router
+from app.api.memories import router as memories_router
 from app.api.ready import router as ready_router
 
 app = FastAPI(
