@@ -1,7 +1,7 @@
 """Memory service — business logic for memory operations with sensitivity detection."""
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import and_, func, select
@@ -11,6 +11,10 @@ from app.models.memory import Memory
 from app.services.memory.rules.engine import get_sensitivity_engine
 
 logger = logging.getLogger(__name__)
+
+
+def get_utc_now():
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class MemoryService:
@@ -75,7 +79,7 @@ class MemoryService:
             content=content,
             is_sensitive=detection.is_sensitive,
             is_encrypted=False,  # Will be set by encryption service in Task 3
-            approved_at=(datetime.utcnow() if not detection.requires_approval else None),
+            approved_at=(get_utc_now() if not detection.requires_approval else None),
         )
 
         session.add(memory)
@@ -147,7 +151,7 @@ class MemoryService:
             raise ValueError(f"Cannot approve a deleted memory {memory_id}")
 
         # Approve it
-        memory.approved_at = datetime.utcnow()
+        memory.approved_at = get_utc_now()
         await session.commit()
 
         logger.info(f"Memory {memory_id} approved by user {user_id}")
@@ -197,7 +201,7 @@ class MemoryService:
             )
 
         # Soft delete by setting deleted_at
-        memory.deleted_at = datetime.utcnow()
+        memory.deleted_at = get_utc_now()
         await session.commit()
 
         logger.info(f"Memory {memory_id} rejected by user {user_id}")
@@ -388,7 +392,7 @@ class MemoryService:
             raise ValueError(f"Memory {memory_id} is already deleted")
 
         # Soft delete
-        memory.deleted_at = datetime.utcnow()
+        memory.deleted_at = get_utc_now()
         await session.commit()
 
         logger.info(f"Memory {memory_id} deleted by user {user_id}")

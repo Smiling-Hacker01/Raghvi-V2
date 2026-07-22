@@ -1,11 +1,15 @@
 """Memory model — user facts that Raghvi learns and remembers."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import Boolean, Column, DateTime, Index, String, Text, Uuid
 
 from app.db.base import Base
+
+
+def get_utc_now():
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class Memory(Base):
@@ -38,8 +42,8 @@ class Memory(Base):
     is_sensitive = Column(Boolean, default=False, nullable=False)
     is_encrypted = Column(Boolean, default=False, nullable=False)
     approved_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=get_utc_now)
+    updated_at = Column(DateTime, nullable=False, default=get_utc_now, onupdate=get_utc_now)
     deleted_at = Column(DateTime, nullable=True)
 
     # Composite indexes for common queries

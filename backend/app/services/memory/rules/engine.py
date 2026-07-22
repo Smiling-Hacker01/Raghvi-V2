@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 
 from .base import RuleMatch, RuleSeverity, SensitivityRule
-from .patterns import STANDARD_RULES
+from .patterns import get_standard_rules
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +65,10 @@ class SensitivityEngine:
         """Initialize engine.
 
         Args:
-            rules: List of rules (uses STANDARD_RULES if None)
+            rules: List of rules (uses get_standard_rules() if None)
             config: Configuration (uses defaults if None)
         """
-        self.rules = rules or STANDARD_RULES
+        self.rules = rules if rules is not None else get_standard_rules()
         self.config = config or EngineConfig()
 
         logger.info(

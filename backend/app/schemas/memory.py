@@ -15,7 +15,7 @@ class MemoryCreateRequest(BaseModel):
         min_length=3,
         max_length=5000,
         description="Memory content (what Raghvi should remember)",
-        example="I'm a software engineer at Google",
+        json_schema_extra={"example": "I'm a software engineer at Google"},
     )
 
 
@@ -41,7 +41,7 @@ class MemoryDetectionResponse(BaseModel):
     severity_level: str = Field(
         ...,
         description="Severity level: 'public', 'sensitive', or 'critical'",
-        example="public",
+        json_schema_extra={"example": "public"},
     )
     is_sensitive: bool = Field(..., description="True if sensitive or critical")
     requires_approval: bool = Field(

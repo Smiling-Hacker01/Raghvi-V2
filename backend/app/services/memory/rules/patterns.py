@@ -192,35 +192,40 @@ class KeywordRule(SensitivityRule):
             return None
 
 
-# Standard rules loaded by default
-STANDARD_RULES = [
-    # CRITICAL severity (1000 points)
-    PatternRule(
-        name="ssn",
-        pattern=r"\b\d{3}-\d{2}-\d{4}\b",
-        severity=RuleSeverity.CRITICAL,
-    ),
-    PatternRule(
-        name="bank_account",
-        pattern=r"\b\d{3}-\d{2}-\d{5}\b",
-        severity=RuleSeverity.CRITICAL,
-    ),
-    CreditCardRule(),
-    KeywordRule(),
-    # MEDIUM severity (50 points)
-    PatternRule(
-        name="email",
-        pattern=r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
-        severity=RuleSeverity.MEDIUM,
-    ),
-    PatternRule(
-        name="phone",
-        pattern=r"\b(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b",
-        severity=RuleSeverity.MEDIUM,
-    ),
-    PatternRule(
-        name="home_address",
-        pattern=r"\b\d+\s+[A-Z][a-z]+\s+(?:St|Ave|Blvd|Rd|Dr|Ln|Ct|Way),?\s+[A-Z][a-z]+,?\s+[A-Z]{2}\s*\d{5}\b",
-        severity=RuleSeverity.MEDIUM,
-    ),
-]
+def get_standard_rules() -> list[SensitivityRule]:
+    """Get fresh list of standard rules (avoids shared state pollution)."""
+    return [
+        # CRITICAL severity (1000 points)
+        PatternRule(
+            name="ssn",
+            pattern=r"\b\d{3}-\d{2}-\d{4}\b",
+            severity=RuleSeverity.CRITICAL,
+        ),
+        PatternRule(
+            name="bank_account",
+            pattern=r"\b\d{3}-\d{2}-\d{5}\b",
+            severity=RuleSeverity.CRITICAL,
+        ),
+        CreditCardRule(),
+        KeywordRule(),
+        # MEDIUM severity (50 points)
+        PatternRule(
+            name="email",
+            pattern=r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
+            severity=RuleSeverity.MEDIUM,
+        ),
+        PatternRule(
+            name="phone",
+            pattern=r"\b(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b",
+            severity=RuleSeverity.MEDIUM,
+        ),
+        PatternRule(
+            name="home_address",
+            pattern=r"\b\d+\s+[A-Z][a-z]+\s+(?:St|Ave|Blvd|Rd|Dr|Ln|Ct|Way),?\s+[A-Z][a-z]+,?\s+[A-Z]{2}\s*\d{5}\b",
+            severity=RuleSeverity.MEDIUM,
+        ),
+    ]
+
+
+# Backward compatibility property
+STANDARD_RULES = get_standard_rules()
