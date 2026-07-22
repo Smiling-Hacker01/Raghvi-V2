@@ -8,9 +8,11 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from app.core.config import get_settings
 from app.db.base import Base
-from app.models import RefreshToken, User
 
-_models = (RefreshToken, User)
+# Import all models via the central registry so Alembic autogenerate detects every table
+from app.models import Conversation, Memory, Message, RefreshToken, User  # noqa: F401
+
+_models = (Conversation, Memory, Message, RefreshToken, User)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
