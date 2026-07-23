@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import engine
 from app.models.conversation import Conversation
 from app.models.message import Message
-from app.models.user import User
 from app.services.ai.client import get_ai_client
 from app.services.ai.prompt import build_system_prompt, get_error_response
 from app.services.memory.extractor import MemoryExtractor
@@ -102,22 +101,22 @@ class ChatService:
         session: AsyncSession,
     ) -> dict:
         """Send a message and get AI response with memory context.
-    
+
         Flow:
         1. Get or create conversation
         2. Retrieve relevant memories
         3. Build system prompt with memory context
         4. Call LLM
         5. Store messages
-    
+
         Args:
             user_id: User's UUID
             user_message_content: Message content from user
             session: Database session
-        
+
         Returns:
             Dict with user_message, assistant_message, tokens_used
-        
+
         Raises:
             ValueError: If content invalid
         """
@@ -140,8 +139,7 @@ class ChatService:
         )
 
         logger.info(
-            f"Chat for user {user_id}: "
-            f"retrieved {len(relevant_memories)} relevant memories"
+            f"Chat for user {user_id}: retrieved {len(relevant_memories)} relevant memories"
         )
 
         # Build system prompt with memory context
@@ -159,16 +157,20 @@ class ChatService:
 
         # Add recent conversation history
         for msg in recent_messages:
-            messages.append({
-                "role": msg["role"],
-                "content": msg["content"],
-            })
+            messages.append(
+                {
+                    "role": msg["role"],
+                    "content": msg["content"],
+                }
+            )
 
         # Add current user message
-        messages.append({
-            "role": "user",
-            "content": user_message_content,
-        })
+        messages.append(
+            {
+                "role": "user",
+                "content": user_message_content,
+            }
+        )
 
         # Call LLM with context
         try:
@@ -179,15 +181,14 @@ class ChatService:
             )
 
             logger.info(
-                f"LLM response for user {user_id}: "
-                f"provider={provider_used}, tokens={tokens_used}"
+                f"LLM response for user {user_id}: provider={provider_used}, tokens={tokens_used}"
             )
 
         except Exception as e:
             logger.error(f"LLM error for user {user_id}: {e}")
             response_text = get_error_response()
             tokens_used = 0
-    
+
         # Store user message
         user_msg = Message(
             conversation_id=conversation.id,
@@ -196,7 +197,7 @@ class ChatService:
             tokens_used=None,
         )
         session.add(user_msg)
-    
+
         # Store assistant message
         assistant_msg = Message(
             conversation_id=conversation.id,
@@ -217,14 +218,14 @@ class ChatService:
             logger.warning(f"Auto memory extraction failed for user {user_id}: {e}")
 
         await session.commit()
-    
+
         logger.info(
             f"Messages stored for conversation {conversation.id}: "
             f"user_msg={user_msg.id}, assistant_msg={assistant_msg.id}"
         )
-    
+
         return {
             "user_message": user_message_content,
             "assistant_message": response_text,
-        "tokens_used": tokens_used,
-    }
+            "tokens_used": tokens_used,
+        }

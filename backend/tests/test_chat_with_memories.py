@@ -96,4 +96,4 @@ class TestChatWithMemories:
 
             # Should find the Rust memory (most relevant)
             assert len(results) > 0
-            assert "Rust" in results[0].content
+            assert "Rust" in results[0].content

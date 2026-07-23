@@ -1,15 +1,16 @@
 """Tests for automatic memory extraction (LLM-based)."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from app.services.memory.extractor import MemoryExtractor, get_memory_extractor
 from app.services.memory.service import MemoryService
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mock_client(response_text: str) -> MagicMock:
     """Return a mock AIClient whose send_message returns *response_text*."""
@@ -30,15 +31,14 @@ def _patch_extractor_llm(response_text: str):
 # Unit tests — no DB, no real LLM
 # ---------------------------------------------------------------------------
 
+
 class TestMemoryExtractorUnit:
     """Fast unit tests: LLM is fully mocked."""
 
     @pytest.mark.asyncio
     async def test_extract_location(self):
         with _patch_extractor_llm('["Lives in Seattle"]'):
-            facts = await MemoryExtractor.extract_facts(
-                "I live in Seattle and it's nice here."
-            )
+            facts = await MemoryExtractor.extract_facts("I live in Seattle and it's nice here.")
         assert "Lives in Seattle" in facts
 
     @pytest.mark.asyncio
@@ -50,9 +50,7 @@ class TestMemoryExtractorUnit:
     @pytest.mark.asyncio
     async def test_extract_job_with_company(self):
         with _patch_extractor_llm('["Works as a Backend Engineer", "Works at Amazon"]'):
-            facts = await MemoryExtractor.extract_facts(
-                "I work as a Backend Engineer at Amazon."
-            )
+            facts = await MemoryExtractor.extract_facts("I work as a Backend Engineer at Amazon.")
         assert "Works as a Backend Engineer" in facts or "Works at Amazon" in facts
 
     @pytest.mark.asyncio
@@ -70,9 +68,7 @@ class TestMemoryExtractorUnit:
     @pytest.mark.asyncio
     async def test_extract_interests(self):
         with _patch_extractor_llm('["Loves sci-fi books", "Loves hiking"]'):
-            facts = await MemoryExtractor.extract_facts(
-                "I love sci-fi books and hiking."
-            )
+            facts = await MemoryExtractor.extract_facts("I love sci-fi books and hiking.")
         assert any("sci-fi" in f.lower() or "hiking" in f.lower() for f in facts)
 
     @pytest.mark.asyncio
@@ -94,12 +90,8 @@ class TestMemoryExtractorUnit:
     async def test_ignore_generic_messages(self):
         with _patch_extractor_llm("[]"):
             assert await MemoryExtractor.extract_facts("What is 2 + 2?") == []
-            assert await MemoryExtractor.extract_facts(
-                "Can you explain how recursion works?"
-            ) == []
-            assert await MemoryExtractor.extract_facts(
-                "Tell me a joke about programming."
-            ) == []
+            assert await MemoryExtractor.extract_facts("Can you explain how recursion works?") == []
+            assert await MemoryExtractor.extract_facts("Tell me a joke about programming.") == []
 
     @pytest.mark.asyncio
     async def test_empty_message_returns_empty(self):
@@ -111,9 +103,7 @@ class TestMemoryExtractorUnit:
     async def test_llm_failure_returns_empty_silently(self):
         """LLM errors must NEVER surface — chat must not be blocked."""
         broken_client = MagicMock()
-        broken_client.send_message = AsyncMock(
-            side_effect=RuntimeError("LLM quota exceeded")
-        )
+        broken_client.send_message = AsyncMock(side_effect=RuntimeError("LLM quota exceeded"))
         with patch(
             "app.services.memory.extractor.get_ai_client",
             return_value=broken_client,
@@ -128,6 +118,7 @@ class TestMemoryExtractorUnit:
 # ---------------------------------------------------------------------------
 # _parse_facts — pure function, no mocking needed
 # ---------------------------------------------------------------------------
+
 
 class TestParseFactsUnit:
     """Test the defensive JSON parsing logic in isolation."""
@@ -160,6 +151,7 @@ class TestParseFactsUnit:
 # ---------------------------------------------------------------------------
 # Integration tests — real DB, mocked LLM
 # ---------------------------------------------------------------------------
+
 
 class TestMemoryExtractorIntegration:
     """DB integration tests: real SQLite, LLM mocked."""
@@ -216,9 +208,7 @@ class TestMemoryExtractorIntegration:
         #   1. app.services.chat's get_ai_client  → Raghvi's chat reply
         #   2. app.services.memory.extractor's get_ai_client → fact extraction
         chat_client = _mock_client("Hey! That's awesome, I'll remember that!")
-        extract_client = _mock_client(
-            '["Lives in Chicago", "Dog\'s name is Max"]'
-        )
+        extract_client = _mock_client('["Lives in Chicago", "Dog\'s name is Max"]')
 
         async with test_db() as session:
             with (
@@ -230,9 +220,7 @@ class TestMemoryExtractorIntegration:
             ):
                 result = await ChatService.send_message(
                     user_id=test_user.id,
-                    user_message_content=(
-                        "I live in Chicago and my dog's name is Max"
-                    ),
+                    user_message_content=("I live in Chicago and my dog's name is Max"),
                     session=session,
                 )
 

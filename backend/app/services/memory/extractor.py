@@ -123,18 +123,13 @@ class MemoryExtractor:
         # Find the first JSON array in the response
         match = re.search(r"\[.*?\]", text, re.DOTALL)
         if not match:
-            logger.debug(
-                f"No JSON array found in extraction response: {text[:120]!r}"
-            )
+            logger.debug(f"No JSON array found in extraction response: {text[:120]!r}")
             return []
 
         try:
             facts = json.loads(match.group())
         except json.JSONDecodeError as exc:
-            logger.debug(
-                f"Failed to parse extraction JSON: {exc}. "
-                f"Raw snippet: {text[:120]!r}"
-            )
+            logger.debug(f"Failed to parse extraction JSON: {exc}. Raw snippet: {text[:120]!r}")
             return []
 
         if not isinstance(facts, list):
@@ -186,8 +181,7 @@ class MemoryExtractor:
             session=session,
         )
         existing_contents: set[str] = {
-            m.content.lower().strip()
-            for m in (existing_approved + existing_pending)
+            m.content.lower().strip() for m in (existing_approved + existing_pending)
         }
 
         created_memories: list[Memory] = []
@@ -196,9 +190,7 @@ class MemoryExtractor:
             fact_lower = fact.lower().strip()
 
             if fact_lower in existing_contents:
-                logger.debug(
-                    f"Skipping duplicate memory for user {user_id}: '{fact}'"
-                )
+                logger.debug(f"Skipping duplicate memory for user {user_id}: '{fact}'")
                 continue
 
             try:
@@ -214,9 +206,7 @@ class MemoryExtractor:
                     f"(auto_approved={is_approved})"
                 )
             except ValueError as exc:
-                logger.warning(
-                    f"Could not save auto-extracted memory '{fact}': {exc}"
-                )
+                logger.warning(f"Could not save auto-extracted memory '{fact}': {exc}")
 
         return created_memories
 

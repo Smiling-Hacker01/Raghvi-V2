@@ -18,7 +18,6 @@ from app.schemas.chat import (
     ChatSendResponse,
     ConversationResponse,
 )
-from app.services.ai.prompt import get_error_response
 from app.services.chat import ChatService
 
 logger = logging.getLogger(__name__)
@@ -37,7 +36,7 @@ async def send_message(
     session: DbSession,
 ) -> ChatSendResponse:
     """Send message to Raghvi.
-    
+
     Raghvi will:
     1. Retrieve your relevant memories for context
     2. Include them in the conversation
@@ -45,40 +44,43 @@ async def send_message(
     """
     # Extract user_id before try block (avoid lazy-load issues)
     user_id = str(current_user.id)
-    
+
     if not request.content.strip():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Message cannot be empty",
         )
-    
+
     try:
         result = await ChatService.send_message(
             user_id=user_id,
             user_message_content=request.content,
             session=session,
         )
-        
+
         return ChatSendResponse(**result)
-        
+
     except ValueError as e:
         logger.error(f"Chat validation error for user {user_id}: {e}")
         from app.services.ai.prompt import get_error_response
+
         return ChatSendResponse(
             user_message=request.content,
             assistant_message=get_error_response(),
             tokens_used=0,
         )
-    
+
     except Exception as e:
         logger.error(f"Chat error for user {user_id}: {e}")
         await session.rollback()
         from app.services.ai.prompt import get_error_response
+
         return ChatSendResponse(
             user_message=request.content,
             assistant_message=get_error_response(),
             tokens_used=0,
         )
+
 
 @router.get("/", response_model=ConversationResponse)
 async def get_conversation(
