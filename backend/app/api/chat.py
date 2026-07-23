@@ -36,61 +36,49 @@ async def send_message(
     current_user: CurrentUser,
     session: DbSession,
 ) -> ChatSendResponse:
-    """Send a message to Raghvi and get response.
-
-    Protected endpoint (requires valid JWT token).
-    Orchestrates: message storage, LLM calling, response generation.
-
-    Args:
-        request: ChatSendRequest with user message
-        current_user: Current authenticated user (from JWT)
-        session: Database session
-
-    Returns:
-        ChatSendResponse with user_message, assistant_message, tokens_used
-
-    Raises:
-        HTTPException 401: If token invalid/expired
-        HTTPException 500: If all LLM providers fail
+    """Send message to Raghvi.
+    
+    Raghvi will:
+    1. Retrieve your relevant memories for context
+    2. Include them in the conversation
+    3. Respond with personalized advice
     """
+    # Extract user_id before try block (avoid lazy-load issues)
+    user_id = str(current_user.id)
+    
     if not request.content.strip():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Message cannot be empty",
         )
-
-    user_id = current_user.id
-
+    
     try:
-        # Call chat service (handles all orchestration)
         result = await ChatService.send_message(
             user_id=user_id,
             user_message_content=request.content,
             session=session,
         )
-
+        
         return ChatSendResponse(**result)
-
+        
     except ValueError as e:
-        # Configuration/validation error
         logger.error(f"Chat validation error for user {user_id}: {e}")
-        # Return friendly error response
+        from app.services.ai.prompt import get_error_response
         return ChatSendResponse(
             user_message=request.content,
             assistant_message=get_error_response(),
             tokens_used=0,
         )
-
+    
     except Exception as e:
-        # LLM provider error (all failed)
-        logger.error(f"Chat LLM error for user {user_id}: {e}")
-        # Return friendly error response
+        logger.error(f"Chat error for user {user_id}: {e}")
+        await session.rollback()
+        from app.services.ai.prompt import get_error_response
         return ChatSendResponse(
             user_message=request.content,
             assistant_message=get_error_response(),
             tokens_used=0,
         )
-
 
 @router.get("/", response_model=ConversationResponse)
 async def get_conversation(

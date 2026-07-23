@@ -12,7 +12,9 @@ from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.user import User
 from app.services.ai.client import get_ai_client
-from app.services.ai.prompt import build_system_prompt
+from app.services.ai.prompt import build_system_prompt, get_error_response
+from app.services.memory.extractor import MemoryExtractor
+from app.services.memory.retrieval import get_retriever
 
 logger = logging.getLogger(__name__)
 
@@ -95,102 +97,134 @@ class ChatService:
 
     @staticmethod
     async def send_message(
-        user_id: UUID,
+        user_id: str,
         user_message_content: str,
         session: AsyncSession,
     ) -> dict:
-        """Send a message and get Raghvi response.
-
-        Orchestrates:
-        1. Load conversation + recent messages
-        2. Load user profile + memories (Sprint 03+)
-        3. Build system prompt
-        4. Call LLM via AIClient
-        5. Store both messages in DB
-        6. Return response to user
-
+        """Send a message and get AI response with memory context.
+    
+        Flow:
+        1. Get or create conversation
+        2. Retrieve relevant memories
+        3. Build system prompt with memory context
+        4. Call LLM
+        5. Store messages
+    
         Args:
-            user_id: User UUID
-            user_message_content: User's message
+            user_id: User's UUID
+            user_message_content: Message content from user
             session: Database session
-
+        
         Returns:
             Dict with user_message, assistant_message, tokens_used
-
+        
         Raises:
-            Exception: If all LLM providers fail
+            ValueError: If content invalid
         """
+        # Validate
+        if not user_message_content or not user_message_content.strip():
+            raise ValueError("Message cannot be empty")
+
+        if len(user_message_content) > 5000:
+            raise ValueError("Message exceeds maximum length")
+
+        # Get or create conversation
+        conversation = await ChatService.get_or_create_conversation(user_id, session)
+
+        # Retrieve relevant memories for context
+        retriever = get_retriever(top_k=9)
+        relevant_memories = await retriever.retrieve(
+            user_id=user_id,
+            query=user_message_content,
+            session=session,
+        )
+
+        logger.info(
+            f"Chat for user {user_id}: "
+            f"retrieved {len(relevant_memories)} relevant memories"
+        )
+
+        # Build system prompt with memory context
+        system_prompt = build_system_prompt(relevant_memories)
+
+        # Get recent message history for context window
+        recent_messages = await ChatService.get_recent_messages(
+            conversation.id,
+            limit=15,
+            session=session,
+        )
+
+        # Build messages list for LLM
+        messages = []
+
+        # Add recent conversation history
+        for msg in recent_messages:
+            messages.append({
+                "role": msg["role"],
+                "content": msg["content"],
+            })
+
+        # Add current user message
+        messages.append({
+            "role": "user",
+            "content": user_message_content,
+        })
+
+        # Call LLM with context
         try:
-            # 1. Get or create conversation
-            conversation = await ChatService.get_or_create_conversation(user_id, session)
-
-            # 2. Get recent messages for context (limit=8 for optimal latency)
-            recent_messages = await ChatService.get_recent_messages(
-                conversation.id, limit=10, session=session
-            )
-
-            # 3. Get user profile (name at minimum)
-            user = await session.scalar(select(User).where(User.id == user_id))
-            if not user:
-                raise ValueError(f"User {user_id} not found")
-
-            # 4. TODO: Load approved memories (Sprint 03)
-            # For now, empty list
-            user_memories = []
-
-            # 5. Build system prompt (Raghvi personality)
-            system_prompt = build_system_prompt(
-                user_name=user.username,
-                user_profile=f"Email: {user.email}",  # Minimal for now
-                user_memories=user_memories,
-            )
-
-            # 6. Add user's new message to context
-            context_messages = recent_messages + [{"role": "user", "content": user_message_content}]
-
-            # 7. Call LLM (using singleton client for HTTP connection reuse)
             client = get_ai_client()
             response_text, tokens_used, provider_used = await client.send_message(
-                messages=context_messages,
+                messages=messages,
                 system_prompt=system_prompt,
-                max_tokens=1000,
-                temperature=0.7,
             )
-
-            # 8. Store user message
-            user_message = Message(
-                conversation_id=conversation.id,
-                role="user",
-                content=user_message_content,
-                tokens_used=0,  # User messages don't use tokens
-            )
-            session.add(user_message)
-
-            # 9. Store assistant message
-            assistant_message = Message(
-                conversation_id=conversation.id,
-                role="assistant",
-                content=response_text,
-                tokens_used=tokens_used,
-            )
-            session.add(assistant_message)
-
-            # 10. Commit to database
-            await session.commit()
 
             logger.info(
-                f"Message stored for user {user_id} "
-                f"via provider {provider_used} ({tokens_used} tokens)"
+                f"LLM response for user {user_id}: "
+                f"provider={provider_used}, tokens={tokens_used}"
             )
 
-            return {
-                "user_message": user_message_content,
-                "assistant_message": response_text,
-                "tokens_used": tokens_used,
-                # Note: provider_used is NOT returned to client
-            }
-
         except Exception as e:
-            logger.error(f"Chat error for user {user_id}: {e}")
-            await session.rollback()
-            raise
+            logger.error(f"LLM error for user {user_id}: {e}")
+            response_text = get_error_response()
+            tokens_used = 0
+    
+        # Store user message
+        user_msg = Message(
+            conversation_id=conversation.id,
+            role="user",
+            content=user_message_content,
+            tokens_used=None,
+        )
+        session.add(user_msg)
+    
+        # Store assistant message
+        assistant_msg = Message(
+            conversation_id=conversation.id,
+            role="assistant",
+            content=response_text,
+            tokens_used=tokens_used,
+        )
+        session.add(assistant_msg)
+
+        # Auto-extract personal facts into user memory bank
+        try:
+            await MemoryExtractor.extract_and_save_memories(
+                user_id=user_id,
+                message=user_message_content,
+                session=session,
+            )
+        except Exception as e:
+            logger.warning(f"Auto memory extraction failed for user {user_id}: {e}")
+
+        await session.commit()
+    
+        logger.info(
+            f"Messages stored for conversation {conversation.id}: "
+            f"user_msg={user_msg.id}, assistant_msg={assistant_msg.id}"
+        )
+    
+        return {
+            "user_message": user_message_content,
+            "assistant_message": response_text,
+        "tokens_used": tokens_used,
+    }
