@@ -32,29 +32,33 @@ class MemoryService:
     async def create_memory(
         user_id: str,
         content: str,
-        session: AsyncSession,
+        user_password: str | None = None,
+        session: AsyncSession = None,
     ) -> tuple[Memory, bool, dict]:
-        """Create a new memory with automatic approval for non-sensitive content.
+        """Create a new memory with automatic approval and optional encryption.
 
         Auto-approval logic:
         - PUBLIC (score < 50): Auto-approved immediately
         - SENSITIVE (50 <= score < 100): Pending user approval
         - CRITICAL (score >= 100): Flagged, never auto-approved
 
+        Auto-encryption logic:
+        - CRITICAL + user_password provided: Content is AES-256-GCM encrypted
+
         Args:
             user_id: User's UUID as string
             content: Memory content
+            user_password: Optional password for encrypting critical data
             session: Database session
 
         Returns:
-            Tuple of:
-                - Memory object (created, not yet committed)
-                - is_auto_approved (bool)
-                - detection_result (dict with analysis details)
+            Tuple of (Memory, is_auto_approved, detection_result)
 
         Raises:
             ValueError: If content is invalid
         """
+        from app.services.memory.encryption import get_encryption_service
+
         # Analyze content for sensitivity
         engine = get_sensitivity_engine()
 
@@ -71,14 +75,28 @@ class MemoryService:
             f"rules_matched={len(detection.matched_rules)}"
         )
 
+        # Encrypt critical content if password provided
+        stored_content = content
+        is_encrypted = False
+
+        if detection.severity_level == "critical" and user_password is not None:
+            try:
+                encryption_service = get_encryption_service()
+                stored_content = encryption_service.encrypt_to_storage(content, user_password)
+                is_encrypted = True
+                logger.info(f"Memory for user {user_id}: critical data auto-encrypted")
+            except Exception as e:
+                logger.error(f"Encryption failed, storing unencrypted: {e}")
+                is_encrypted = False
+
         # Create memory object
         # approved_at is set immediately for public (non-sensitive) content
-        # approved_at is NULL (pending) for sensitive content
+        # approved_at is NULL (pending) for sensitive/critical content
         memory = Memory(
             user_id=user_id,
-            content=content,
+            content=stored_content,
             is_sensitive=detection.is_sensitive,
-            is_encrypted=False,  # Will be set by encryption service in Task 3
+            is_encrypted=is_encrypted,
             approved_at=(get_utc_now() if not detection.requires_approval else None),
         )
 
@@ -96,6 +114,7 @@ class MemoryService:
             "total_score": detection.total_score,
             "matched_rules": [r.rule_name for r in detection.matched_rules],
             "reason": detection.reason,
+            "is_encrypted": is_encrypted,
         }
 
         logger.info(
