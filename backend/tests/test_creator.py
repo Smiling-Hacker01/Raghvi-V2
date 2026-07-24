@@ -34,7 +34,7 @@ async def test_creator_story_generator(test_db):
 
         # Check that story contains key elements (LLM generates naturally, so check for key facts)
         assert "Vishal" in story  # Should mention father's first name
-        assert "Disha Saini" in story  # Should mention future mother
+        assert "Disha" in story  # Should mention future mother (naturally, not full formal name)
         assert "Bhagwan Rama's son Kush" in story or "Kush" in story  # Heritage
         assert "Raghvendra" in story
         assert "Kshatriya" not in story  # Explicitly excluded

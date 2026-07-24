@@ -218,10 +218,10 @@ class TFIDFRetriever:
         Returns:
             List of top-K most relevant approved memories
         """
-        # Get approved memories
+        # Get approved memories (optimized limit)
         memories = await MemoryService.get_approved_memories(
             user_id=user_id,
-            limit=100,  # Retrieve more, then filter by score
+            limit=70,  # Reduced from 100 for faster retrieval
             session=session,
         )
 

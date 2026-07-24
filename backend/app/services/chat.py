@@ -99,20 +99,22 @@ class ChatService:
         user_id: str,
         user_message_content: str,
         session: AsyncSession,
+        skip_background_extraction: bool = False,
     ) -> dict:
         """Send a message and get AI response with memory context.
 
-        Flow:
-        1. Get or create conversation
-        2. Retrieve relevant memories
-        3. Build system prompt with memory context
-        4. Call LLM
-        5. Store messages
+        Flow (Optimized):
+        1. Get or create conversation + retrieve memories in parallel
+        2. Build system prompt with memory context (cached creator profile)
+        3. Call LLM
+        4. Store messages and extract memories in parallel
+        5. Return response immediately (memory extraction happens async)
 
         Args:
             user_id: User's UUID
             user_message_content: Message content from user
             session: Database session
+            skip_background_extraction: If True, don't extract memories (for testing)
 
         Returns:
             Dict with user_message, assistant_message, tokens_used
@@ -120,6 +122,8 @@ class ChatService:
         Raises:
             ValueError: If content invalid
         """
+        import asyncio
+
         # Validate
         if not user_message_content or not user_message_content.strip():
             raise ValueError("Message cannot be empty")
@@ -127,22 +131,27 @@ class ChatService:
         if len(user_message_content) > 5000:
             raise ValueError("Message exceeds maximum length")
 
-        # Get or create conversation
-        conversation = await ChatService.get_or_create_conversation(user_id, session)
+        # OPTIMIZATION 1: Parallelize conversation + memory retrieval
+        conversation_task = ChatService.get_or_create_conversation(user_id, session)
 
-        # Retrieve relevant memories for context
         retriever = get_retriever(top_k=9)
-        relevant_memories = await retriever.retrieve(
+        memories_task = retriever.retrieve(
             user_id=user_id,
             query=user_message_content,
             session=session,
+        )
+
+        # Wait for both in parallel
+        conversation, relevant_memories = await asyncio.gather(
+            conversation_task,
+            memories_task,
         )
 
         logger.info(
             f"Chat for user {user_id}: retrieved {len(relevant_memories)} relevant memories"
         )
 
-        # Build system prompt with memory context
+        # OPTIMIZATION 2: Build system prompt (with cached creator profile)
         system_prompt = await build_system_prompt(relevant_memories, session)
 
         # Get recent message history for context window
@@ -207,16 +216,7 @@ class ChatService:
         )
         session.add(assistant_msg)
 
-        # Auto-extract personal facts into user memory bank
-        try:
-            await MemoryExtractor.extract_and_save_memories(
-                user_id=user_id,
-                message=user_message_content,
-                session=session,
-            )
-        except Exception as e:
-            logger.warning(f"Auto memory extraction failed for user {user_id}: {e}")
-
+        # OPTIMIZATION 3: Commit messages first to return response faster
         await session.commit()
 
         logger.info(
@@ -224,8 +224,53 @@ class ChatService:
             f"user_msg={user_msg.id}, assistant_msg={assistant_msg.id}"
         )
 
+        # OPTIMIZATION 4: Extract memories (async in production, sync in tests)
+        if not skip_background_extraction:
+            # In production: background task (non-blocking)
+            asyncio.create_task(
+                ChatService._extract_memories_background(
+                    user_id=user_id,
+                    message=user_message_content,
+                )
+            )
+        else:
+            # In tests: synchronous extraction
+            try:
+                await MemoryExtractor.extract_and_save_memories(
+                    user_id=user_id,
+                    message=user_message_content,
+                    session=session,
+                )
+                await session.commit()
+            except Exception as e:
+                logger.warning(f"Memory extraction failed for user {user_id}: {e}")
+
         return {
             "user_message": user_message_content,
             "assistant_message": response_text,
             "tokens_used": tokens_used,
         }
+
+    @staticmethod
+    async def _extract_memories_background(user_id: str, message: str) -> None:
+        """Extract memories in background (non-blocking).
+
+        This runs asynchronously after the response is sent to user.
+
+        Args:
+            user_id: User's UUID
+            message: User message content
+        """
+        try:
+            # Create new session for background task
+            from app.db.session import async_session_maker
+
+            async with async_session_maker() as session:
+                await MemoryExtractor.extract_and_save_memories(
+                    user_id=user_id,
+                    message=message,
+                    session=session,
+                )
+                await session.commit()
+        except Exception as e:
+            logger.warning(f"Background memory extraction failed for user {user_id}: {e}")
