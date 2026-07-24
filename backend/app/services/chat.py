@@ -143,7 +143,7 @@ class ChatService:
         )
 
         # Build system prompt with memory context
-        system_prompt = build_system_prompt(relevant_memories)
+        system_prompt = await build_system_prompt(relevant_memories, session)
 
         # Get recent message history for context window
         recent_messages = await ChatService.get_recent_messages(

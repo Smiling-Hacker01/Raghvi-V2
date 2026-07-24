@@ -53,16 +53,17 @@ class TestChatWithMemories:
 
             assert len(memories) == 2
 
-            # Build system prompt with memories
-            prompt = build_system_prompt(memories)
+            # Build system prompt with memories (await async function)
+            prompt = await build_system_prompt(memories, session)
 
             # Verify memory context is in prompt
             assert "learning rust" in prompt.lower()
             assert "backend engineer" in prompt.lower()
 
-    def test_system_prompt_without_memories(self):
+    @pytest.mark.asyncio
+    async def test_system_prompt_without_memories(self):
         """Test system prompt when user has no memories."""
-        prompt = build_system_prompt(None)
+        prompt = await build_system_prompt(None, None)
 
         # Should have core personality
         assert "Raghvi" in prompt
