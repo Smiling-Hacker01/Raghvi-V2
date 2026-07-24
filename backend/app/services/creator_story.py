@@ -353,10 +353,10 @@ class CreatorStoryGenerator:
         # Always refer to father as "my dad, Vishal" or "my father, Vishal"
         # (treat everyone as a regular user, no special handling for people named Vishal)
         father_ref = "'my dad, Vishal' or 'my father, Vishal' or just 'Dad'"
-        
+
         # Extract first name for natural references
         mother_first_name = profile.girlfriend_name.split()[0] if profile.girlfriend_name else "her"
-        
+
         user_prompt_text = (
             user_messages[-1] if user_messages else "Who created you and why are you named Raghvi?"
         )

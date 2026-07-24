@@ -133,14 +133,14 @@ class ChatService:
 
         # OPTIMIZATION 1: Parallelize conversation + memory retrieval
         conversation_task = ChatService.get_or_create_conversation(user_id, session)
-        
+
         retriever = get_retriever(top_k=9)
         memories_task = retriever.retrieve(
             user_id=user_id,
             query=user_message_content,
             session=session,
         )
-        
+
         # Wait for both in parallel
         conversation, relevant_memories = await asyncio.gather(
             conversation_task,
@@ -254,9 +254,9 @@ class ChatService:
     @staticmethod
     async def _extract_memories_background(user_id: str, message: str) -> None:
         """Extract memories in background (non-blocking).
-        
+
         This runs asynchronously after the response is sent to user.
-        
+
         Args:
             user_id: User's UUID
             message: User message content
@@ -264,7 +264,7 @@ class ChatService:
         try:
             # Create new session for background task
             from app.db.session import async_session_maker
-            
+
             async with async_session_maker() as session:
                 await MemoryExtractor.extract_and_save_memories(
                     user_id=user_id,

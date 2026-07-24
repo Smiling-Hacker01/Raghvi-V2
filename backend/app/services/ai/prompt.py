@@ -234,32 +234,32 @@ def get_memory_full_context(memories: list[Memory] | None) -> str:
 
 async def get_creator_context_cached(session: AsyncSession | None = None) -> str:
     """Get creator context with in-memory caching for performance.
-    
+
     Caches the creator profile context to avoid repeated database queries.
     Cache is cleared on server restart or manual invalidation.
-    
+
     Args:
         session: Database session for fetching creator profile
-        
+
     Returns:
         Formatted creator context string
     """
     global _creator_context_cache
-    
+
     # Return cached version if available
     if _creator_context_cache is not None:
         return _creator_context_cache
-    
+
     # Fetch and cache
     context = await get_creator_context(session)
     _creator_context_cache = context
-    
+
     return context
 
 
 def invalidate_creator_cache() -> None:
     """Manually invalidate the creator profile cache.
-    
+
     Call this if creator profile is updated in the database.
     """
     global _creator_context_cache
