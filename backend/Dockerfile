@@ -17,6 +17,8 @@ RUN uv sync --locked --no-dev --no-install-project
 
 # Now copy the actual application code and install it
 COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini ./alembic.ini
 RUN uv sync --locked --no-dev
 
 # ---- Runtime stage ----
@@ -30,6 +32,8 @@ WORKDIR /app
 # Copy the virtual environment and app code from the builder stage
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/app /app/app
+COPY --from=builder /app/alembic /app/alembic
+COPY --from=builder /app/alembic.ini /app/alembic.ini
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \

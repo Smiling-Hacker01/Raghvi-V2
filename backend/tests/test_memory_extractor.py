@@ -222,6 +222,7 @@ class TestMemoryExtractorIntegration:
                     user_id=test_user.id,
                     user_message_content=("I live in Chicago and my dog's name is Max"),
                     session=session,
+                    skip_background_extraction=True,  # Synchronous extraction for testing
                 )
 
         assert result["assistant_message"] is not None

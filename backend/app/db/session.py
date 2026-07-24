@@ -27,9 +27,13 @@ if settings.database_url.startswith("postgresql"):
 # databases fail fast. SQLite test engines skip those PostgreSQL-only options.
 engine: AsyncEngine = create_async_engine(settings.database_url, **engine_options)
 
-AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+# Session maker for creating new sessions (used in background tasks)
+async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
+
+# Alias for backward compatibility
+AsyncSessionLocal = async_session_maker
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession]:
-    async with AsyncSessionLocal() as session:
+    async with async_session_maker() as session:
         yield session
