@@ -71,5 +71,33 @@ def _register_builtin_providers() -> None:
     except ImportError:
         pass
 
+    try:
+        from app.services.ai.providers.groq import GroqAdapter
+
+        AIProviderRegistry.register("groq", GroqAdapter)
+    except ImportError:
+        pass
+
+    try:
+        from app.services.ai.providers.openrouter import OpenRouterAdapter
+
+        AIProviderRegistry.register("openrouter", OpenRouterAdapter)
+    except ImportError:
+        pass
+
+    try:
+        from app.services.ai.providers.huggingface import HuggingFaceAdapter
+
+        AIProviderRegistry.register("huggingface", HuggingFaceAdapter)
+    except ImportError:
+        pass
+
+    try:
+        from app.services.ai.providers.github import GitHubModelsAdapter
+
+        AIProviderRegistry.register("github", GitHubModelsAdapter)
+    except ImportError:
+        pass
+
 
 _register_builtin_providers()
