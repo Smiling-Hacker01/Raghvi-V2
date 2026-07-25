@@ -25,6 +25,10 @@ class AIProviderChain:
         logger.info(f"Primary provider configured: {self.primary_provider}")
         logger.info(f"OpenAI API key present: {bool(settings.openai_api_key)}")
         logger.info(f"Gemini API key present: {bool(settings.gemini_api_key)}")
+        logger.info(f"Groq API key present: {bool(settings.groq_api_key)}")
+        logger.info(f"OpenRouter API key present: {bool(settings.open_router_api_key)}")
+        logger.info(f"HuggingFace API key present: {bool(settings.hugging_face_api_key)}")
+        logger.info(f"GitHub token present: {bool(settings.github_token)}")
         logger.info("=" * 60)
 
         # Build provider chain (order matters)
@@ -67,7 +71,8 @@ class AIProviderChain:
             )
 
         # Add fallback providers (any not already in chain)
-        fallback_order = ["openai", "gemini"]
+        # Order: faster/free providers first, then premium
+        fallback_order = ["groq", "github", "gemini", "openrouter", "huggingface", "openai"]
         for provider in fallback_order:
             if provider == primary:
                 # Skip primary, already attempted
@@ -96,7 +101,7 @@ class AIProviderChain:
         """Load a specific provider adapter.
 
         Args:
-            provider_name: Name of provider (openai, gemini)
+            provider_name: Name of provider (openai, gemini, groq, etc.)
 
         Returns:
             Adapter instance if valid and configured, None if not configured
@@ -139,6 +144,74 @@ class AIProviderChain:
                 return adapter
             except Exception as e:
                 logger.error(f"Failed to initialize Gemini adapter: {e}")
+                raise
+
+        elif provider_name == "groq":
+            logger.debug("Checking Groq configuration...")
+            if not settings.groq_api_key:
+                logger.debug("Groq API key not configured")
+                return None
+
+            logger.debug("Loading Groq adapter...")
+            try:
+                from app.services.ai.providers.groq import GroqAdapter
+
+                adapter = GroqAdapter()
+                logger.debug(f"Groq adapter loaded: model={adapter.model}")
+                return adapter
+            except Exception as e:
+                logger.error(f"Failed to initialize Groq adapter: {e}")
+                raise
+
+        elif provider_name == "openrouter":
+            logger.debug("Checking OpenRouter configuration...")
+            if not settings.open_router_api_key:
+                logger.debug("OpenRouter API key not configured")
+                return None
+
+            logger.debug("Loading OpenRouter adapter...")
+            try:
+                from app.services.ai.providers.openrouter import OpenRouterAdapter
+
+                adapter = OpenRouterAdapter()
+                logger.debug(f"OpenRouter adapter loaded: model={adapter.model}")
+                return adapter
+            except Exception as e:
+                logger.error(f"Failed to initialize OpenRouter adapter: {e}")
+                raise
+
+        elif provider_name == "huggingface":
+            logger.debug("Checking HuggingFace configuration...")
+            if not settings.hugging_face_api_key:
+                logger.debug("HuggingFace API key not configured")
+                return None
+
+            logger.debug("Loading HuggingFace adapter...")
+            try:
+                from app.services.ai.providers.huggingface import HuggingFaceAdapter
+
+                adapter = HuggingFaceAdapter()
+                logger.debug(f"HuggingFace adapter loaded: model={adapter.model}")
+                return adapter
+            except Exception as e:
+                logger.error(f"Failed to initialize HuggingFace adapter: {e}")
+                raise
+
+        elif provider_name == "github":
+            logger.debug("Checking GitHub configuration...")
+            if not settings.github_token:
+                logger.debug("GitHub token not configured")
+                return None
+
+            logger.debug("Loading GitHub adapter...")
+            try:
+                from app.services.ai.providers.github import GitHubModelsAdapter
+
+                adapter = GitHubModelsAdapter()
+                logger.debug(f"GitHub adapter loaded: model={adapter.model}")
+                return adapter
+            except Exception as e:
+                logger.error(f"Failed to initialize GitHub adapter: {e}")
                 raise
 
         logger.warning(f"Unknown provider: {provider_name}")

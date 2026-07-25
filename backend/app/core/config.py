@@ -30,6 +30,18 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash"
     gemini_timeout_seconds: int = 15
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
+    groq_timeout_seconds: int = 15
+    open_router_api_key: str = ""
+    open_router_model: str = "openai/gpt-4o-mini"
+    open_router_timeout_seconds: int = 15
+    hugging_face_api_key: str = ""
+    hugging_face_model: str = "microsoft/Phi-3-mini-4k-instruct"
+    hugging_face_timeout_seconds: int = 30
+    github_token: str = ""
+    github_model: str = "gpt-4o"
+    github_timeout_seconds: int = 15
 
 
 @lru_cache(maxsize=1)

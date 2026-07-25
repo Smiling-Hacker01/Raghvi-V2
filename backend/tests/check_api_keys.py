@@ -97,13 +97,21 @@ def main():
 
     # Display current configuration
     print("\n🔑 API Keys:")
-    print(f"   Gemini:  {mask_key(settings.gemini_api_key)}")
-    print(f"   OpenAI:  {mask_key(settings.openai_api_key)}")
+    print(f"   Gemini:       {mask_key(settings.gemini_api_key)}")
+    print(f"   OpenAI:       {mask_key(settings.openai_api_key)}")
+    print(f"   Groq:         {mask_key(settings.groq_api_key)}")
+    print(f"   OpenRouter:   {mask_key(settings.open_router_api_key)}")
+    print(f"   HuggingFace:  {mask_key(settings.hugging_face_api_key)}")
+    print(f"   GitHub:       {mask_key(settings.github_token)}")
 
     print("\n⚙️  Models:")
-    print(f"   Gemini Model:  {settings.gemini_model}")
-    print(f"   OpenAI Model:  {settings.openai_model}")
-    print(f"   Primary Provider: {settings.ai_provider}")
+    print(f"   Primary Provider:  {settings.ai_provider}")
+    print(f"   Gemini Model:      {settings.gemini_model}")
+    print(f"   OpenAI Model:      {settings.openai_model}")
+    print(f"   Groq Model:        {settings.groq_model}")
+    print(f"   OpenRouter Model:  {settings.open_router_model}")
+    print(f"   HuggingFace Model: {settings.hugging_face_model}")
+    print(f"   GitHub Model:      {settings.github_model}")
 
     # Check .env file location
     print("\n📁 Environment:")
@@ -142,6 +150,38 @@ def main():
             print("   ⚠️  OpenAI key format unusual (should start with 'sk-' or 'sk-proj-')")
     else:
         print("   ⚠️  OpenAI key not set")
+
+    if settings.groq_api_key:
+        if settings.groq_api_key.startswith("gsk_"):
+            print("   ✅ Groq key format looks valid")
+        else:
+            print("   ❌ Groq key format invalid (should start with 'gsk_')")
+    else:
+        print("   ⚠️  Groq key not set")
+
+    if settings.open_router_api_key:
+        if settings.open_router_api_key.startswith("sk-or-v1-"):
+            print("   ✅ OpenRouter key format looks valid")
+        else:
+            print("   ❌ OpenRouter key format invalid (should start with 'sk-or-v1-')")
+    else:
+        print("   ⚠️  OpenRouter key not set")
+
+    if settings.hugging_face_api_key:
+        if settings.hugging_face_api_key.startswith("hf_"):
+            print("   ✅ HuggingFace key format looks valid")
+        else:
+            print("   ❌ HuggingFace key format invalid (should start with 'hf_')")
+    else:
+        print("   ⚠️  HuggingFace key not set")
+
+    if settings.github_token:
+        if settings.github_token.startswith("github_pat_"):
+            print("   ✅ GitHub token format looks valid")
+        else:
+            print("   ❌ GitHub token format invalid (should start with 'github_pat_')")
+    else:
+        print("   ⚠️  GitHub token not set")
 
     # Test connectivity
     print("\n🌐 Testing API Connectivity...")

@@ -12,6 +12,10 @@ def chain_settings():
         ai_provider="openai",
         openai_api_key="sk-chain-test",
         gemini_api_key="AIzaSy-chain-test",
+        groq_api_key="",  # Disable other providers for isolated tests
+        open_router_api_key="",
+        hugging_face_api_key="",
+        github_token="",
     )
 
 
