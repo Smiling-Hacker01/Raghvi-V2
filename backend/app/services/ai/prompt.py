@@ -8,6 +8,7 @@ She's someone people can actually talk to as a real human friend or family.
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.memory import Memory
+from app.models.task import Task
 
 # Cache for creator profile context (expires after function changes)
 _creator_context_cache: str | None = None
@@ -16,6 +17,7 @@ _creator_context_cache: str | None = None
 async def build_system_prompt(
     user_memories: list[Memory] | None = None,
     session: AsyncSession | None = None,
+    user_tasks: list[Task] | None = None,
 ) -> str:
     """Build Raghvi's personality prompt with optional memory context.
 
@@ -90,9 +92,38 @@ This is what friendship is. You're doing that."""
     if user_memories and len(user_memories) > 0:
         memory_section = _build_memory_context(user_memories)
 
-    full_prompt = core_personality + creator_context + memory_section
+    # Add task context if available
+    task_section = ""
+    if user_tasks and len(user_tasks) > 0:
+        task_section = _build_task_context(user_tasks)
+
+    full_prompt = core_personality + creator_context + memory_section + task_section
 
     return full_prompt
+
+
+def _build_task_context(tasks: list[Task]) -> str:
+    """Build natural task/goal context for Raghvi.
+
+    Written naturally like a friend keeping track of what they are working on,
+    their current goals, and what they hope to accomplish.
+    """
+    if not tasks:
+        return ""
+
+    task_lines = ["\n\n**Things you're currently working on / goals you've mentioned to me:**"]
+    for task in tasks[:5]:
+        due_str = f" (due: {task.due_date.strftime('%b %d')})" if task.due_date else ""
+        priority_str = f" [{task.priority} priority]" if task.priority in ["high", "urgent"] else ""
+        task_lines.append(f"- {task.title}{priority_str}{due_str}")
+
+    task_lines.append(
+        "\n*Note for Raghvi: You naturally know their goals/tasks. "
+        "You can warmly ask how things are going or offer encouraging thoughts "
+        "if relevant, but never nag or act like a project manager.*"
+    )
+
+    return "\n".join(task_lines)
 
 
 def _build_memory_context(memories: list[Memory]) -> str:
