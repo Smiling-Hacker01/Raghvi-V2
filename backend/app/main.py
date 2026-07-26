@@ -8,6 +8,7 @@ from app.api.creator import router as creator_router
 from app.api.health import router as health_router
 from app.api.memories import router as memories_router
 from app.api.ready import router as ready_router
+from app.api.tasks import router as tasks_router
 from app.services.creator_seed import ensure_creator_seeded_on_startup
 
 
@@ -33,6 +34,7 @@ app.include_router(memories_router)
 app.include_router(health_router)
 app.include_router(ready_router)
 app.include_router(creator_router)
+app.include_router(tasks_router)
 
 
 @app.get("/")
