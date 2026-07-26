@@ -1,6 +1,7 @@
 """Tests for Sprint 04 (Task Management)."""
 
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -20,32 +21,81 @@ class TestTaskExtraction:
         """Test extracting tasks from natural language."""
         message = "I want to learn Rust by the end of Q1 and finish my project by next week"
 
-        extractor = TaskExtractor()
-        tasks = await extractor.extract_tasks(message)
+        # Mock the AI client to return a task extraction response
+        mock_response = """
+        {
+          "tasks": [
+            {
+              "title": "Learn Rust by end of Q1",
+              "description": "Complete Rust fundamentals",
+              "priority": "medium",
+              "due_date": "2026-03-31"
+            },
+            {
+              "title": "Finish project",
+              "description": null,
+              "priority": "high",
+              "due_date": null
+            }
+          ]
+        }
+        """
 
-        # Should extract at least 1 task
-        assert len(tasks) >= 1
-        assert any("rust" in t.get("title", "").lower() for t in tasks)
+        with patch("app.services.task_extractor.AIClient") as MockAIClient:
+            mock_client = MockAIClient.return_value
+            mock_client.send_message = AsyncMock(return_value=(mock_response, 100, "mock"))
+
+            extractor = TaskExtractor()
+            tasks = await extractor.extract_tasks(message)
+
+            # Should extract at least 1 task
+            assert len(tasks) >= 1
+            assert any("rust" in t.get("title", "").lower() for t in tasks)
 
     async def test_extract_empty_on_casual_message(self):
         """Test that casual messages don't extract tasks."""
         message = "Hey, how's your day going?"
 
-        extractor = TaskExtractor()
-        tasks = await extractor.extract_tasks(message)
+        # Mock the AI client to return no tasks
+        mock_response = '{"tasks": []}'
 
-        # Should extract nothing
-        assert len(tasks) == 0
+        with patch("app.services.task_extractor.AIClient") as MockAIClient:
+            mock_client = MockAIClient.return_value
+            mock_client.send_message = AsyncMock(return_value=(mock_response, 50, "mock"))
+
+            extractor = TaskExtractor()
+            tasks = await extractor.extract_tasks(message)
+
+            # Should extract nothing
+            assert len(tasks) == 0
 
     async def test_extract_priority_and_due_date(self):
         """Test priority and due date extraction."""
         message = "I need to fix this urgent bug today"
 
-        extractor = TaskExtractor()
-        tasks = await extractor.extract_tasks(message)
+        # Mock the AI client to return urgent task
+        mock_response = """
+        {
+          "tasks": [
+            {
+              "title": "Fix urgent bug",
+              "description": null,
+              "priority": "urgent",
+              "due_date": null
+            }
+          ]
+        }
+        """
 
-        if tasks:
-            assert tasks[0].get("priority") in ["urgent", "high"]
+        with patch("app.services.task_extractor.AIClient") as MockAIClient:
+            mock_client = MockAIClient.return_value
+            mock_client.send_message = AsyncMock(return_value=(mock_response, 75, "mock"))
+
+            extractor = TaskExtractor()
+            tasks = await extractor.extract_tasks(message)
+
+            if tasks:
+                assert tasks[0].get("priority") in ["urgent", "high"]
 
 
 class TestReminders:
