@@ -10,6 +10,8 @@ from app.models.creator import CreatorProfile
 from app.models.memory import Memory
 from app.models.message import Message
 from app.models.refresh_token import RefreshToken
+from app.models.reminder import Reminder  # noqa: F401
+from app.models.task import Task
 from app.models.user import User
 
 __all__ = [
@@ -19,4 +21,6 @@ __all__ = [
     "Message",
     "RefreshToken",
     "User",
+    "Task",
+    "Reminder",
 ]

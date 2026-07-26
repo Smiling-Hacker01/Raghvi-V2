@@ -131,7 +131,7 @@ class ChatService:
         if len(user_message_content) > 5000:
             raise ValueError("Message exceeds maximum length")
 
-        # OPTIMIZATION 1: Parallelize conversation + memory retrieval
+        # OPTIMIZATION 1: Parallelize conversation + memory retrieval + active task retrieval
         conversation_task = ChatService.get_or_create_conversation(user_id, session)
 
         retriever = get_retriever(top_k=9)
@@ -141,18 +141,31 @@ class ChatService:
             session=session,
         )
 
-        # Wait for both in parallel
-        conversation, relevant_memories = await asyncio.gather(
+        from app.services.task_service import TaskService
+
+        tasks_task = TaskService.get_active_tasks(
+            user_id=str(user_id),
+            session=session,
+        )
+
+        # Wait for all in parallel
+        conversation, relevant_memories, active_tasks = await asyncio.gather(
             conversation_task,
             memories_task,
+            tasks_task,
         )
 
         logger.info(
-            f"Chat for user {user_id}: retrieved {len(relevant_memories)} relevant memories"
+            f"Chat for user {user_id}: retrieved {len(relevant_memories)} memories, "
+            f"{len(active_tasks)} active tasks"
         )
 
-        # OPTIMIZATION 2: Build system prompt (with cached creator profile)
-        system_prompt = await build_system_prompt(relevant_memories, session)
+        # OPTIMIZATION 2: Build system prompt (with cached creator profile & active tasks)
+        system_prompt = await build_system_prompt(
+            user_memories=relevant_memories,
+            session=session,
+            user_tasks=active_tasks,
+        )
 
         # Get recent message history for context window
         recent_messages = await ChatService.get_recent_messages(
@@ -224,11 +237,19 @@ class ChatService:
             f"user_msg={user_msg.id}, assistant_msg={assistant_msg.id}"
         )
 
-        # OPTIMIZATION 4: Extract memories (async in production, sync in tests)
+        # OPTIMIZATION 4: Extract memories and tasks (async in production, sync in tests)
+        from app.services.task_extractor import TaskExtractor
+
         if not skip_background_extraction:
             # In production: background task (non-blocking)
             asyncio.create_task(
                 ChatService._extract_memories_background(
+                    user_id=user_id,
+                    message=user_message_content,
+                )
+            )
+            asyncio.create_task(
+                ChatService._extract_tasks_background(
                     user_id=user_id,
                     message=user_message_content,
                 )
@@ -244,6 +265,20 @@ class ChatService:
                 await session.commit()
             except Exception as e:
                 logger.warning(f"Memory extraction failed for user {user_id}: {e}")
+
+            try:
+                extracted = await TaskExtractor.extract_tasks(
+                    user_message=user_message_content,
+                    session=session,
+                )
+                if extracted:
+                    await TaskExtractor.create_tasks_from_extraction(
+                        user_id=str(user_id),
+                        extracted_tasks=extracted,
+                        session=session,
+                    )
+            except Exception as e:
+                logger.warning(f"Task extraction failed for user {user_id}: {e}")
 
         return {
             "user_message": user_message_content,
@@ -274,3 +309,31 @@ class ChatService:
                 await session.commit()
         except Exception as e:
             logger.warning(f"Background memory extraction failed for user {user_id}: {e}")
+
+    @staticmethod
+    async def _extract_tasks_background(user_id: str, message: str) -> None:
+        """Extract tasks in background (non-blocking).
+
+        This runs asynchronously after the response is sent to user.
+
+        Args:
+            user_id: User's UUID
+            message: User message content
+        """
+        try:
+            from app.db.session import async_session_maker
+            from app.services.task_extractor import TaskExtractor
+
+            async with async_session_maker() as session:
+                extracted = await TaskExtractor.extract_tasks(
+                    user_message=message,
+                    session=session,
+                )
+                if extracted:
+                    await TaskExtractor.create_tasks_from_extraction(
+                        user_id=str(user_id),
+                        extracted_tasks=extracted,
+                        session=session,
+                    )
+        except Exception as e:
+            logger.warning(f"Background task extraction failed for user {user_id}: {e}")
