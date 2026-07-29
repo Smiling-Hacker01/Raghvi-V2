@@ -1,135 +1,191 @@
-"""Pytest fixtures for backend tests."""
-
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+"""Pytest configuration and shared fixtures."""
 
 import pytest
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+import asyncio
+from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from app.db.base import Base
-from app.db.session import get_db_session
-from app.main import app
+from app.models.subscription import SubscriptionPlan
 from app.models.user import User
-from app.security.password import hash_password
-
-# Test database URL (use SQLite for speed)
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
-
-
-@pytest.fixture
-async def test_db():
-    """Create test database and tables."""
-    engine = create_async_engine(
-        TEST_DATABASE_URL,
-        echo=False,
-        connect_args={"check_same_thread": False},
-    )
-
-    # Create all tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    # Create session factory
-    async_session = sessionmaker(
-        engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
-
-    yield async_session
-
-    # Cleanup
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
-    await engine.dispose()
-
-
-@pytest.fixture
-def override_get_db(test_db):
-    """Override get_db_session dependency."""
-
-    async def get_test_db():
-        async with test_db() as session:
-            yield session
-
-    return get_test_db
-
-
-@pytest.fixture
-def app_with_test_db(override_get_db):
-    """Create app with test database."""
-    app.dependency_overrides[get_db_session] = override_get_db
-    yield app
-    app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def mock_ai_client():
-    """Mock the AI client so tests don't hit real LLM APIs."""
-    fake_client = MagicMock()
-    fake_client.send_message = AsyncMock(
-        return_value=("Hello! I'm Raghvi, how can I help you?", 42, "mock")
-    )
-
-    with patch("app.services.chat.get_ai_client", return_value=fake_client):
-        yield fake_client
-
-
-@pytest.fixture
-async def client(app_with_test_db, mock_ai_client):
-    """Create test HTTP client."""
-    transport = ASGITransport(app=app_with_test_db)
-
-    async with AsyncClient(
-        transport=transport,
-        base_url="http://test",
-    ) as ac:
-        yield ac
-
-
-@pytest.fixture
-async def test_user(test_db):
-    """Create a test user in the database."""
-    async with test_db() as session:
-        user = User(
-            username="testuser",
-            email="testuser@example.com",
-            password_hash=hash_password("TestPassword123"),
-            name="Test User",
-            phone="1234567890",
-        )
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
-        return user
-
-
-@pytest.fixture
-async def auth_headers(client, test_user):
-    """Get authorization headers with valid JWT token."""
-    response = await client.post(
-        "/auth/login",
-        json={
-            "username": "testuser",
-            "password": "TestPassword123",
-        },
-    )
-
-    assert response.status_code == 200
-
-    token = response.json()["access_token"]
-
-    return {
-        "Authorization": f"Bearer {token}",
-    }
 
 
 @pytest.fixture(scope="session")
 def event_loop():
-    """Create event loop for tests."""
+    """Create event loop for async tests."""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture
+async def test_db_engine():
+    """Create test database engine."""
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        echo=False,
+    )
+    
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    yield engine
+    
+    await engine.dispose()
+
+
+@pytest.fixture
+async def test_session(test_db_engine) -> AsyncGenerator[AsyncSession, None]:
+    """Create test database session with seeded data."""
+    async_session = sessionmaker(
+        test_db_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    
+    async with async_session() as session:
+        # Seed subscription plans
+        plans = [
+            SubscriptionPlan(
+                id="free",
+                name="Free",
+                description="Free plan",
+                price_usd=0.0,
+                max_custom_voices=0,
+                supported_languages="en",
+            ),
+            SubscriptionPlan(
+                id="pro",
+                name="Pro",
+                description="Pro plan",
+                price_usd=9.99,
+                max_custom_voices=1,
+                supported_languages="en,hi",
+            ),
+            SubscriptionPlan(
+                id="premium",
+                name="Premium",
+                description="Premium plan",
+                price_usd=19.99,
+                max_custom_voices=3,
+                supported_languages="en,hi",
+            ),
+        ]
+        
+        for plan in plans:
+            session.add(plan)
+        
+        await session.commit()
+        
+        yield session
+
+
+@pytest.fixture
+def mock_current_user():
+    """Mock authenticated user."""
+    return User(
+        id="test_user_123",
+        email="test@example.com",
+        username="testuser",
+    )
+
+
+@pytest.fixture
+def test_settings():
+    """Override settings for testing."""
+    from app.core.config import Settings
+    
+    return Settings(
+        database_url="sqlite+aiosqlite:///:memory:",
+        jwt_secret_key="test_secret_key",
+        stripe_api_key="sk_test_123",
+        stripe_webhook_secret="whsec_test_123",
+        elevenlabs_api_key="test_elevenlabs_key",
+        s3_bucket="test-bucket",
+        aws_access_key_id="test_key",
+        aws_secret_access_key="test_secret",
+    )
+
+
+# Mock services for testing
+
+class MockS3Service:
+    """Mock S3 service for testing."""
+    
+    async def upload_voice_sample(self, user_id: str, voice_id: str, audio_data, file_extension: str = "wav") -> str:
+        """Mock upload that returns fake URL."""
+        return f"https://test-bucket.s3.amazonaws.com/voices/{user_id}/{voice_id}.{file_extension}"
+    
+    async def delete_voice_sample(self, s3_url: str) -> bool:
+        """Mock delete."""
+        return True
+    
+    async def generate_presigned_url(self, s3_key: str, expiration: int = 3600) -> str:
+        """Mock presigned URL."""
+        return f"https://test-bucket.s3.amazonaws.com/{s3_key}?signed=true"
+
+
+@pytest.fixture
+def mock_s3_service():
+    """Provide mock S3 service."""
+    return MockS3Service()
+
+
+class MockStripe:
+    """Mock Stripe client for testing."""
+    
+    @staticmethod
+    def verify_signature(payload: bytes, sig_header: str, secret: str):
+        """Mock signature verification."""
+        return True
+    
+    @staticmethod
+    def create_checkout_session(params: dict):
+        """Mock checkout session creation."""
+        return {
+            "id": "cs_test_123",
+            "url": "https://checkout.stripe.com/pay/cs_test_123",
+        }
+
+
+@pytest.fixture
+def mock_stripe():
+    """Provide mock Stripe client."""
+    return MockStripe()
+
+
+# Test data factories
+
+def create_test_user(user_id: str = "test_user") -> dict:
+    """Create test user data."""
+    return {
+        "id": user_id,
+        "email": f"{user_id}@example.com",
+        "username": user_id,
+    }
+
+
+def create_test_subscription(user_id: str, plan_id: str = "pro") -> dict:
+    """Create test subscription data."""
+    from datetime import datetime, timedelta
+    
+    return {
+        "user_id": user_id,
+        "plan_id": plan_id,
+        "started_at": datetime.utcnow(),
+        "expires_at": datetime.utcnow() + timedelta(days=30),
+        "is_active": True,
+    }
+
+
+def create_test_voice(user_id: str, voice_name: str = "Test Voice") -> dict:
+    """Create test voice data."""
+    return {
+        "user_id": user_id,
+        "voice_type": "custom",
+        "voice_id": "test_voice_id",
+        "voice_name": voice_name,
+        "provider": "elevenlabs",
+        "languages": "en",
+    }

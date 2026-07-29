@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with Raghvi (Voice)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .token-input {
+            padding: 15px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .token-input input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message.user {
+            align-items: flex-end;
+        }
+
+        .message.assistant {
+            align-items: flex-start;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            position: relative;
+        }
+
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .message.assistant .message-bubble {
+            background: white;
+            color: #333;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.6;
+            margin-top: 5px;
+        }
+
+        .audio-controls {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .play-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .play-button:hover {
+            background: #5568d3;
+        }
+
+        .play-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .provider-badge {
+            font-size: 11px;
+            padding: 3px 8px;
+            background: #e9ecef;
+            border-radius: 10px;
+            color: #666;
+        }
+
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-area textarea {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            resize: none;
+            font-family: inherit;
+            font-size: 14px;
+            min-height: 40px;
+            max-height: 120px;
+        }
+
+        .input-area button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .input-area button:hover {
+            opacity: 0.9;
+        }
+
+        .input-area button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 10px;
+            color: #666;
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 5px;
+            padding: 10px 16px;
+            background: white;
+            border-radius: 18px;
+            width: fit-content;
+        }
+
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+            }
+            30% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎙️ Chat with Raghvi</h1>
+            <p>AI Assistant with Voice Responses</p>
+        </div>
+
+        <div class="token-input">
+            <input 
+                type="text" 
+                id="token" 
+                placeholder="Paste your JWT token here (from login)"
+            >
+        </div>
+
+        <div class="chat-messages" id="messages">
+            <div class="message assistant">
+                <div class="message-bubble">
+                    👋 Hello! I'm Raghvi, your AI assistant. Ask me anything and I'll respond with voice!
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <textarea 
+                id="user-input" 
+                placeholder="Type your message here..."
+                rows="1"
+            ></textarea>
+            <button id="send-btn" onclick="sendMessage()">
+                🎙️ Send
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let currentAudio = null;
+
+        // Auto-fill token from localStorage
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedToken = localStorage.getItem('raghvi_token');
+            if (savedToken) {
+                document.getElementById('token').value = savedToken;
+            }
+
+            document.getElementById('token').addEventListener('change', (e) => {
+                if (e.target.value) {
+                    localStorage.setItem('raghvi_token', e.target.value);
+                }
+            });
+
+            // Auto-resize textarea
+            const textarea = document.getElementById('user-input');
+            textarea.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = this.scrollHeight + 'px';
+            });
+
+            // Send on Enter (Shift+Enter for new line)
+            textarea.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+        });
+
+        async function sendMessage() {
+            const token = document.getElementById('token').value.trim();
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
+            const sendBtn = document.getElementById('send-btn');
+            const messagesDiv = document.getElementById('messages');
+
+            if (!token) {
+                alert('Please enter your JWT token first');
+                return;
+            }
+
+            if (!message) {
+                return;
+            }
+
+            // Disable input
+            input.disabled = true;
+            sendBtn.disabled = true;
+            sendBtn.textContent = '⏳ Thinking...';
+
+            // Add user message to chat
+            addMessage('user', message);
+            input.value = '';
+            input.style.height = 'auto';
+
+            // Show typing indicator
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message assistant';
+            typingDiv.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+            typingDiv.id = 'typing';
+            messagesDiv.appendChild(typingDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            try {
+                // Call API
+                const response = await fetch('http://localhost:8000/chat/send-with-voice', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content: message })
+                });
+
+                // Remove typing indicator
+                document.getElementById('typing')?.remove();
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to get response');
+                }
+
+                const data = await response.json();
+
+                // Add assistant message with audio
+                addMessage('assistant', data.assistant_message, data.audio);
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('typing')?.remove();
+                
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.textContent = `Error: ${error.message}`;
+                messagesDiv.appendChild(errorDiv);
+                
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            } finally {
+                // Re-enable input
+                input.disabled = false;
+                sendBtn.disabled = false;
+                sendBtn.textContent = '🎙️ Send';
+                input.focus();
+            }
+        }
+
+        function addMessage(role, text, audio = null) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble';
+            bubble.textContent = text;
+
+            messageDiv.appendChild(bubble);
+
+            // Add audio player for assistant messages
+            if (role === 'assistant' && audio && audio.data_base64) {
+                const audioControls = document.createElement('div');
+                audioControls.className = 'audio-controls';
+
+                const playBtn = document.createElement('button');
+                playBtn.className = 'play-button';
+                playBtn.innerHTML = '🔊 Play Voice';
+                playBtn.onclick = () => playAudio(audio.data_base64, playBtn);
+
+                const providerBadge = document.createElement('span');
+                providerBadge.className = 'provider-badge';
+                providerBadge.textContent = audio.provider || 'Unknown';
+
+                audioControls.appendChild(playBtn);
+                audioControls.appendChild(providerBadge);
+                messageDiv.appendChild(audioControls);
+
+                // Auto-play the first response
+                setTimeout(() => playAudio(audio.data_base64, playBtn), 500);
+            }
+
+            // Add timestamp
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = new Date().toLocaleTimeString();
+            messageDiv.appendChild(timeDiv);
+
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function playAudio(base64Data, button) {
+            try {
+                // Stop current audio if playing
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio = null;
+                }
+
+                // Convert base64 to audio
+                const audioData = atob(base64Data);
+                const arrayBuffer = new ArrayBuffer(audioData.length);
+                const uint8Array = new Uint8Array(arrayBuffer);
+                for (let i = 0; i < audioData.length; i++) {
+                    uint8Array[i] = audioData.charCodeAt(i);
+                }
+
+                const blob = new Blob([uint8Array], { type: 'audio/wav' });
+                const audioUrl = URL.createObjectURL(blob);
+
+                // Create and play audio
+                const audio = new Audio(audioUrl);
+                currentAudio = audio;
+
+                button.textContent = '⏸️ Playing...';
+                button.disabled = true;
+
+                audio.play();
+
+                audio.onended = () => {
+                    button.textContent = '🔊 Play Voice';
+                    button.disabled = false;
+                    currentAudio = null;
+                };
+
+                audio.onerror = () => {
+                    button.textContent = '❌ Error';
+                    button.disabled = false;
+                    currentAudio = null;
+                    alert('Failed to play audio');
+                };
+
+            } catch (error) {
+                console.error('Audio playback error:', error);
+                button.textContent = '🔊 Play Voice';
+                button.disabled = false;
+                alert('Failed to play audio: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
