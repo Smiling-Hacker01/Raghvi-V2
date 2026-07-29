@@ -3,11 +3,13 @@
 import logging
 from typing import Any
 
+import aiofiles
+
 from app.services.voice.providers.base import (
-    VoiceProvider,
-    VoiceProviderError,
     VoiceCloneRequest,
     VoiceCloneResponse,
+    VoiceProvider,
+    VoiceProviderError,
     VoiceSynthesisRequest,
     VoiceSynthesisResponse,
 )
@@ -67,9 +69,7 @@ class CoquiXTTSProvider(VoiceProvider):
             logger.error(f"XTTS voice cloning failed: {e}")
             raise VoiceProviderError(f"Failed to clone voice: {e}") from e
 
-    async def synthesize_speech(
-        self, request: VoiceSynthesisRequest
-    ) -> VoiceSynthesisResponse:
+    async def synthesize_speech(self, request: VoiceSynthesisRequest) -> VoiceSynthesisResponse:
         """Synthesize speech using XTTS with voice cloning."""
 
         try:
@@ -92,8 +92,8 @@ class CoquiXTTSProvider(VoiceProvider):
             )
 
             # Read audio data
-            with open(output_path, "rb") as f:
-                audio_data = f.read()
+            async with aiofiles.open(output_path, "rb") as f:
+                audio_data = await f.read()
 
             # Clean up
             import os
@@ -133,5 +133,23 @@ class CoquiXTTSProvider(VoiceProvider):
             "voice_id": voice_id,
             "provider": "coqui_xtts",
             "supports_cloning": True,
-            "languages": ["en", "es", "fr", "de", "it", "pt", "pl", "tr", "ru", "nl", "cs", "ar", "zh-cn", "ja", "hu", "ko", "hi"],
+            "languages": [
+                "en",
+                "es",
+                "fr",
+                "de",
+                "it",
+                "pt",
+                "pl",
+                "tr",
+                "ru",
+                "nl",
+                "cs",
+                "ar",
+                "zh-cn",
+                "ja",
+                "hu",
+                "ko",
+                "hi",
+            ],
         }

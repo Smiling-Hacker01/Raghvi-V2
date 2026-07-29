@@ -14,7 +14,7 @@ from app.models.reminder import Reminder  # noqa: F401
 from app.models.subscription import SubscriptionPlan, UserSubscription
 from app.models.task import Task
 from app.models.user import User
-from app.models.voice import UserVoice, SystemVoice
+from app.models.voice import SystemVoice, UserVoice
 
 __all__ = [
     "Conversation",
@@ -28,5 +28,5 @@ __all__ = [
     "Task",
     "Reminder",
     "UserVoice",
-    "SystemVoice"
+    "SystemVoice",
 ]

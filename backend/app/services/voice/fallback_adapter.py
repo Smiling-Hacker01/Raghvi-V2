@@ -5,10 +5,10 @@ from typing import Any
 
 from app.services.voice.provider_factory import VoiceProviderFactory
 from app.services.voice.providers.base import (
-    VoiceProvider,
-    VoiceProviderError,
     VoiceCloneRequest,
     VoiceCloneResponse,
+    VoiceProvider,
+    VoiceProviderError,
     VoiceSynthesisRequest,
     VoiceSynthesisResponse,
 )
@@ -52,20 +52,14 @@ class VoiceProviderFallbackAdapter:
                 self.providers.append(provider)
                 logger.info(f"Initialized fallback provider: {provider_config['name']}")
             except Exception as e:
-                logger.warning(
-                    f"Failed to initialize provider {provider_config['name']}: {e}"
-                )
+                logger.warning(f"Failed to initialize provider {provider_config['name']}: {e}")
 
         if not self.providers:
             raise ValueError("No voice providers could be initialized")
 
-        logger.info(
-            f"Fallback adapter initialized with {len(self.providers)} providers"
-        )
+        logger.info(f"Fallback adapter initialized with {len(self.providers)} providers")
 
-    async def synthesize_speech(
-        self, request: VoiceSynthesisRequest
-    ) -> VoiceSynthesisResponse:
+    async def synthesize_speech(self, request: VoiceSynthesisRequest) -> VoiceSynthesisResponse:
         """
         Synthesize speech with automatic fallback.
 
@@ -76,23 +70,20 @@ class VoiceProviderFallbackAdapter:
         for i, provider in enumerate(self.providers):
             try:
                 logger.info(
-                    f"Attempting synthesis with provider {i+1}/{len(self.providers)}: "
+                    f"Attempting synthesis with provider {i + 1}/{len(self.providers)}: "
                     f"{provider.provider_name}"
                 )
 
                 response = await provider.synthesize_speech(request)
 
-                logger.info(
-                    f"✓ Synthesis successful with provider: {provider.provider_name}"
-                )
+                logger.info(f"✓ Synthesis successful with provider: {provider.provider_name}")
 
                 return response
 
             except VoiceProviderError as e:
                 last_error = e
                 logger.warning(
-                    f"✗ Provider {provider.provider_name} failed: {e}. "
-                    f"Trying next provider..."
+                    f"✗ Provider {provider.provider_name} failed: {e}. Trying next provider..."
                 )
                 continue
 
@@ -105,9 +96,7 @@ class VoiceProviderFallbackAdapter:
                 continue
 
         # All providers failed
-        logger.error(
-            f"All {len(self.providers)} providers failed for speech synthesis"
-        )
+        logger.error(f"All {len(self.providers)} providers failed for speech synthesis")
         raise VoiceProviderError(
             f"All voice providers failed. Last error: {last_error}"
         ) from last_error
@@ -127,9 +116,7 @@ class VoiceProviderFallbackAdapter:
 
                 response = await provider.clone_voice(request)
 
-                logger.info(
-                    f"✓ Voice cloning successful with provider: {provider.provider_name}"
-                )
+                logger.info(f"✓ Voice cloning successful with provider: {provider.provider_name}")
 
                 return response
 
@@ -145,8 +132,7 @@ class VoiceProviderFallbackAdapter:
                     )
                 else:
                     logger.warning(
-                        f"✗ Provider {provider.provider_name} failed: {e}. "
-                        f"Trying next provider..."
+                        f"✗ Provider {provider.provider_name} failed: {e}. Trying next provider..."
                     )
                 continue
 
@@ -160,9 +146,7 @@ class VoiceProviderFallbackAdapter:
                 continue
 
         # All providers failed
-        logger.error(
-            f"All {attempted} providers failed or don't support voice cloning"
-        )
+        logger.error(f"All {attempted} providers failed or don't support voice cloning")
         raise VoiceProviderError(
             f"Voice cloning failed with all providers. Last error: {last_error}"
         ) from last_error
@@ -180,13 +164,9 @@ class VoiceProviderFallbackAdapter:
             try:
                 voices = await provider.list_voices(language)
                 all_voices[provider.provider_name] = voices
-                logger.info(
-                    f"Retrieved {len(voices)} voices from {provider.provider_name}"
-                )
+                logger.info(f"Retrieved {len(voices)} voices from {provider.provider_name}")
             except Exception as e:
-                logger.warning(
-                    f"Failed to list voices from {provider.provider_name}: {e}"
-                )
+                logger.warning(f"Failed to list voices from {provider.provider_name}: {e}")
                 all_voices[provider.provider_name] = []
 
         return all_voices

@@ -1,7 +1,8 @@
 """Tests for Stripe webhook handlers."""
 
-import pytest
 import json
+
+import pytest
 from httpx import AsyncClient
 
 from app.main import app
@@ -15,7 +16,7 @@ async def test_stripe_webhook_signature_required():
             "/webhooks/stripe",
             json={"type": "customer.subscription.created"},
         )
-        
+
         # Should fail without signature
         assert response.status_code == 400
 
@@ -24,7 +25,7 @@ async def test_stripe_webhook_signature_required():
 async def test_subscription_created_event():
     """
     Test subscription.created webhook event.
-    
+
     This would test:
     1. Valid Stripe signature verification
     2. User subscription created in database
@@ -39,7 +40,7 @@ async def test_subscription_created_event():
 async def test_payment_succeeded_event():
     """
     Test invoice.payment_succeeded webhook event.
-    
+
     This would test:
     1. Subscription renewed
     2. Expiration date extended
@@ -53,7 +54,7 @@ async def test_payment_succeeded_event():
 async def test_payment_failed_event():
     """
     Test invoice.payment_failed webhook event.
-    
+
     This would test:
     1. User notified
     2. Grace period applied
@@ -67,7 +68,7 @@ async def test_payment_failed_event():
 async def test_subscription_deleted_event():
     """
     Test subscription.deleted webhook event.
-    
+
     This would test:
     1. Subscription cancelled
     2. Custom voices expired
@@ -79,22 +80,23 @@ async def test_subscription_deleted_event():
 
 # Helper functions for test setup
 
+
 def create_stripe_signature(payload: dict, secret: str) -> str:
     """Create mock Stripe signature for testing."""
-    import hmac
     import hashlib
+    import hmac
     import time
-    
+
     payload_json = json.dumps(payload)
     timestamp = int(time.time())
-    
+
     signed_payload = f"{timestamp}.{payload_json}"
     signature = hmac.new(
         secret.encode(),
         signed_payload.encode(),
         hashlib.sha256,
     ).hexdigest()
-    
+
     return f"t={timestamp},v1={signature}"
 
 

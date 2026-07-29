@@ -6,10 +6,10 @@ from typing import Any
 import aiohttp
 
 from app.services.voice.providers.base import (
-    VoiceProvider,
-    VoiceProviderError,
     VoiceCloneRequest,
     VoiceCloneResponse,
+    VoiceProvider,
+    VoiceProviderError,
     VoiceSynthesisRequest,
     VoiceSynthesisResponse,
 )
@@ -36,13 +36,9 @@ class DeepgramProvider(VoiceProvider):
 
     async def clone_voice(self, request: VoiceCloneRequest) -> VoiceCloneResponse:
         """Voice cloning not supported by Deepgram."""
-        raise VoiceProviderError(
-            "Voice cloning not supported by Deepgram. Use preset voices."
-        )
+        raise VoiceProviderError("Voice cloning not supported by Deepgram. Use preset voices.")
 
-    async def synthesize_speech(
-        self, request: VoiceSynthesisRequest
-    ) -> VoiceSynthesisResponse:
+    async def synthesize_speech(self, request: VoiceSynthesisRequest) -> VoiceSynthesisResponse:
         """Synthesize speech using Deepgram TTS."""
 
         if not self.api_key:
@@ -52,8 +48,9 @@ class DeepgramProvider(VoiceProvider):
             # Use voice_id as the model/voice name
             model = request.voice_id if request.voice_id.startswith("aura-") else self.model
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            async with (
+                aiohttp.ClientSession() as session,
+                session.post(
                     f"{self.BASE_URL}/speak",
                     headers={
                         "Authorization": f"Token {self.api_key}",
@@ -61,23 +58,22 @@ class DeepgramProvider(VoiceProvider):
                     },
                     params={"model": model, "encoding": "linear16", "sample_rate": 44100},
                     json={"text": request.text},
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        raise VoiceProviderError(
-                            f"Deepgram synthesis error: {response.status} - {error_text}"
-                        )
-
-                    audio_data = await response.read()
-
-                    logger.info(
-                        f"Speech synthesized with Deepgram: {len(audio_data)} bytes"
+                ) as response,
+            ):
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise VoiceProviderError(
+                        f"Deepgram synthesis error: {response.status} - {error_text}"
                     )
 
-                    return VoiceSynthesisResponse(
-                        audio_data=audio_data,
-                        audio_format="wav",
-                    )
+                audio_data = await response.read()
+
+                logger.info(f"Speech synthesized with Deepgram: {len(audio_data)} bytes")
+
+                return VoiceSynthesisResponse(
+                    audio_data=audio_data,
+                    audio_format="wav",
+                )
 
         except Exception as e:
             logger.error(f"Deepgram speech synthesis failed: {e}")

@@ -10,12 +10,11 @@ from app.api.auth import get_current_user
 from app.db.session import get_db_session
 from app.models.user import User
 from app.schemas.subscription import (
+    CancelSubscriptionRequest,
+    CreateSubscriptionRequest,
+    SubscriptionListResponse,
     SubscriptionPlanResponse,
     UserSubscriptionResponse,
-    CreateSubscriptionRequest,
-    UpgradeSubscriptionRequest,
-    CancelSubscriptionRequest,
-    SubscriptionListResponse,
 )
 from app.services.subscription_service import SubscriptionService
 
@@ -35,11 +34,11 @@ async def list_plans(
     """Get all available subscription plans."""
     try:
         plans = await SubscriptionService.list_plans(session)
-        
+
         # Get user's current plan
         user_sub = await SubscriptionService.get_user_subscription(current_user.id, session)
         current_plan = user_sub.plan_id if user_sub else None
-        
+
         return SubscriptionListResponse(
             plans=[
                 SubscriptionPlanResponse(
@@ -58,7 +57,7 @@ async def list_plans(
             ],
             user_current_plan=current_plan,
         )
-    
+
     except Exception as e:
         logger.error(f"Failed to list plans: {e}")
         raise HTTPException(
@@ -75,15 +74,15 @@ async def get_my_subscription(
     """Get current user's subscription."""
     try:
         subscription = await SubscriptionService.get_user_subscription(current_user.id, session)
-        
+
         if not subscription:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No active subscription",
             )
-        
+
         plan = await SubscriptionService.get_subscription_plan(subscription.plan_id, session)
-        
+
         return UserSubscriptionResponse(
             id=str(subscription.id),
             user_id=subscription.user_id,
@@ -97,7 +96,7 @@ async def get_my_subscription(
             auto_renew=subscription.auto_renew,
             stripe_subscription_id=subscription.stripe_subscription_id,
         )
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -118,15 +117,15 @@ async def upgrade_subscription(
     try:
         # TODO: Integrate with Stripe payment
         # For now, just create subscription without payment
-        
+
         subscription = await SubscriptionService.create_subscription(
             user_id=current_user.id,
             plan_id=request.plan_id,
             session=session,
         )
-        
+
         plan = await SubscriptionService.get_subscription_plan(subscription.plan_id, session)
-        
+
         return UserSubscriptionResponse(
             id=str(subscription.id),
             user_id=subscription.user_id,
@@ -140,7 +139,7 @@ async def upgrade_subscription(
             auto_renew=subscription.auto_renew,
             stripe_subscription_id=subscription.stripe_subscription_id,
         )
-    
+
     except ValueError as e:
         logger.error(f"Upgrade error: {e}")
         raise HTTPException(
@@ -164,12 +163,12 @@ async def cancel_subscription(
     """Cancel subscription."""
     try:
         await SubscriptionService.cancel_subscription(current_user.id, session)
-        
+
         return {
             "status": "cancelled",
             "message": "Subscription cancelled successfully",
         }
-    
+
     except ValueError as e:
         logger.error(f"Cancel error: {e}")
         raise HTTPException(
@@ -193,7 +192,7 @@ async def get_subscription_stats(
     try:
         stats = await SubscriptionService.get_subscription_stats(current_user.id, session)
         return stats
-    
+
     except Exception as e:
         logger.error(f"Failed to get stats: {e}")
         raise HTTPException(

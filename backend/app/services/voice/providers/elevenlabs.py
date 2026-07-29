@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+import aiofiles
 import aiohttp
 
 from app.services.voice.providers.base import (
@@ -42,8 +43,8 @@ class ElevenLabsProvider(VoiceProvider):
 
         try:
             # Read audio file
-            with open(request.audio_file_path, "rb") as f:
-                audio_data = f.read()
+            async with aiofiles.open(request.audio_file_path, "rb") as f:
+                audio_data = await f.read()
 
             # Prepare multipart form data
             form_data = aiohttp.FormData()

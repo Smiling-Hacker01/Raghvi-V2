@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.subscription import SubscriptionPlan, UserSubscription
@@ -21,16 +21,14 @@ class SubscriptionService:
         session: AsyncSession,
     ) -> SubscriptionPlan | None:
         """Get subscription plan by ID."""
-        return await session.scalar(
-            select(SubscriptionPlan).where(SubscriptionPlan.id == plan_id)
-        )
+        return await session.scalar(select(SubscriptionPlan).where(SubscriptionPlan.id == plan_id))
 
     @staticmethod
     async def list_plans(session: AsyncSession) -> list[SubscriptionPlan]:
         """List all active subscription plans."""
         plans = await session.scalars(
             select(SubscriptionPlan)
-            .where(SubscriptionPlan.is_active == True)
+            .where(SubscriptionPlan.is_active)
             .order_by(SubscriptionPlan.price_usd)
         )
         return plans.all()
@@ -45,7 +43,7 @@ class SubscriptionService:
             select(UserSubscription).where(
                 and_(
                     UserSubscription.user_id == user_id,
-                    UserSubscription.is_active == True,
+                    UserSubscription.is_active,
                 )
             )
         )
@@ -59,7 +57,7 @@ class SubscriptionService:
         session: AsyncSession = None,
     ) -> UserSubscription:
         """Create or upgrade user subscription."""
-        
+
         # Validate plan exists
         plan = await SubscriptionService.get_subscription_plan(plan_id, session)
         if not plan:
@@ -72,17 +70,19 @@ class SubscriptionService:
             existing.plan_id = plan_id
             existing.renewed_at = datetime.utcnow()
             existing.expires_at = datetime.utcnow() + timedelta(days=30)
-            existing.stripe_subscription_id = stripe_subscription_id or existing.stripe_subscription_id
+            existing.stripe_subscription_id = (
+                stripe_subscription_id or existing.stripe_subscription_id
+            )
             existing.stripe_customer_id = stripe_customer_id or existing.stripe_customer_id
             existing.updated_at = datetime.utcnow()
-            
+
             await session.commit()
             logger.info(f"Subscription upgraded for user {user_id}: {plan_id}")
             return existing
 
         # Create new subscription
         expires_at = datetime.utcnow() + timedelta(days=30)
-        
+
         subscription = UserSubscription(
             user_id=user_id,
             plan_id=plan_id,
@@ -91,12 +91,12 @@ class SubscriptionService:
             stripe_subscription_id=stripe_subscription_id,
             stripe_customer_id=stripe_customer_id,
         )
-        
+
         session.add(subscription)
         await session.commit()
-        
+
         logger.info(f"Subscription created for user {user_id}: {plan_id}")
-        
+
         return subscription
 
     @staticmethod
@@ -105,7 +105,7 @@ class SubscriptionService:
         session: AsyncSession,
     ) -> UserSubscription:
         """Renew user's subscription."""
-        
+
         subscription = await SubscriptionService.get_user_subscription(user_id, session)
         if not subscription:
             raise ValueError("No active subscription to renew")
@@ -114,11 +114,11 @@ class SubscriptionService:
         subscription.expires_at = subscription.expires_at + timedelta(days=30)
         subscription.renewed_at = datetime.utcnow()
         subscription.updated_at = datetime.utcnow()
-        
+
         await session.commit()
-        
+
         logger.info(f"Subscription renewed for user {user_id}")
-        
+
         return subscription
 
     @staticmethod
@@ -127,7 +127,7 @@ class SubscriptionService:
         session: AsyncSession,
     ) -> None:
         """Cancel user's subscription."""
-        
+
         subscription = await SubscriptionService.get_user_subscription(user_id, session)
         if not subscription:
             raise ValueError("No active subscription to cancel")
@@ -135,13 +135,14 @@ class SubscriptionService:
         subscription.is_active = False
         subscription.deleted_at = datetime.utcnow()
         subscription.updated_at = datetime.utcnow()
-        
+
         # Expire all custom voices
         from app.services.voice.voice_service import VoiceService
+
         await VoiceService.expire_user_voices(user_id, session)
-        
+
         await session.commit()
-        
+
         logger.info(f"Subscription cancelled for user {user_id}")
 
     @staticmethod
@@ -150,35 +151,36 @@ class SubscriptionService:
         Check for expired subscriptions and deactivate them.
         Call this from a scheduled job (daily).
         """
-        
+
         now = datetime.utcnow()
-        
+
         expired = await session.scalars(
             select(UserSubscription).where(
                 and_(
-                    UserSubscription.is_active == True,
+                    UserSubscription.is_active,
                     UserSubscription.expires_at < now,
                 )
             )
         )
-        
+
         count = 0
         for subscription in expired.all():
             subscription.is_active = False
             subscription.updated_at = now
             count += 1
-            
+
             logger.info(f"Subscription expired for user {subscription.user_id}")
-            
+
             # Expire custom voices
             from app.services.voice.voice_service import VoiceService
+
             await VoiceService.expire_user_voices(subscription.user_id, session)
-        
+
         if count > 0:
             await session.commit()
-        
+
         logger.info(f"Expired {count} subscriptions")
-        
+
         return count
 
     @staticmethod
@@ -187,9 +189,9 @@ class SubscriptionService:
         session: AsyncSession,
     ) -> dict:
         """Get user's subscription stats."""
-        
+
         subscription = await SubscriptionService.get_user_subscription(user_id, session)
-        
+
         if not subscription:
             return {
                 "plan_id": "free",
@@ -200,19 +202,23 @@ class SubscriptionService:
             }
 
         plan = await SubscriptionService.get_subscription_plan(subscription.plan_id, session)
-        
+
         # Count custom voices
         from sqlalchemy import func
-        voice_count = await session.scalar(
-            select(func.count(UserVoice.id)).where(
-                and_(
-                    UserVoice.user_id == user_id,
-                    UserVoice.voice_type == "custom",
-                    UserVoice.deleted_at.is_(None),
+
+        voice_count = (
+            await session.scalar(
+                select(func.count(UserVoice.id)).where(
+                    and_(
+                        UserVoice.user_id == user_id,
+                        UserVoice.voice_type == "custom",
+                        UserVoice.deleted_at.is_(None),
+                    )
                 )
             )
-        ) or 0
-        
+            or 0
+        )
+
         return {
             "plan_id": subscription.plan_id,
             "plan_name": plan.name if plan else "Unknown",

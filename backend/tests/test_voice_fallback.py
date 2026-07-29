@@ -15,12 +15,8 @@ class MockSuccessProvider:
 
     provider_name = "mock_success"
 
-    async def synthesize_speech(
-        self, request: VoiceSynthesisRequest
-    ) -> VoiceSynthesisResponse:
-        return VoiceSynthesisResponse(
-            audio_data=b"mock audio data", audio_format="wav"
-        )
+    async def synthesize_speech(self, request: VoiceSynthesisRequest) -> VoiceSynthesisResponse:
+        return VoiceSynthesisResponse(audio_data=b"mock audio data", audio_format="wav")
 
 
 class MockFailProvider:
@@ -28,9 +24,7 @@ class MockFailProvider:
 
     provider_name = "mock_fail"
 
-    async def synthesize_speech(
-        self, request: VoiceSynthesisRequest
-    ) -> VoiceSynthesisResponse:
+    async def synthesize_speech(self, request: VoiceSynthesisRequest) -> VoiceSynthesisResponse:
         raise VoiceProviderError("Mock provider failure")
 
 
@@ -94,9 +88,7 @@ async def test_fallback_order():
             self.provider_name = name
             self.should_fail = should_fail
 
-        async def synthesize_speech(
-            self, request: VoiceSynthesisRequest
-        ) -> VoiceSynthesisResponse:
+        async def synthesize_speech(self, request: VoiceSynthesisRequest) -> VoiceSynthesisResponse:
             call_order.append(self.provider_name)
 
             if self.should_fail:

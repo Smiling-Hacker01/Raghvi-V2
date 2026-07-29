@@ -1,7 +1,7 @@
 """S3 storage service for voice samples and audio files."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from io import BytesIO
 from typing import BinaryIO
 

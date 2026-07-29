@@ -1,9 +1,10 @@
 """Pytest configuration and shared fixtures."""
 
-import pytest
 import asyncio
-from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from collections.abc import AsyncGenerator
+
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.base import Base
@@ -26,24 +27,24 @@ async def test_db_engine():
         "sqlite+aiosqlite:///:memory:",
         echo=False,
     )
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield engine
-    
+
     await engine.dispose()
 
 
 @pytest.fixture
-async def test_session(test_db_engine) -> AsyncGenerator[AsyncSession, None]:
+async def test_session(test_db_engine) -> AsyncGenerator[AsyncSession]:
     """Create test database session with seeded data."""
     async_session = sessionmaker(
         test_db_engine,
         class_=AsyncSession,
         expire_on_commit=False,
     )
-    
+
     async with async_session() as session:
         # Seed subscription plans
         plans = [
@@ -72,12 +73,12 @@ async def test_session(test_db_engine) -> AsyncGenerator[AsyncSession, None]:
                 supported_languages="en,hi",
             ),
         ]
-        
+
         for plan in plans:
             session.add(plan)
-        
+
         await session.commit()
-        
+
         yield session
 
 
@@ -95,7 +96,7 @@ def mock_current_user():
 def test_settings():
     """Override settings for testing."""
     from app.core.config import Settings
-    
+
     return Settings(
         database_url="sqlite+aiosqlite:///:memory:",
         jwt_secret_key="test_secret_key",
@@ -110,17 +111,20 @@ def test_settings():
 
 # Mock services for testing
 
+
 class MockS3Service:
     """Mock S3 service for testing."""
-    
-    async def upload_voice_sample(self, user_id: str, voice_id: str, audio_data, file_extension: str = "wav") -> str:
+
+    async def upload_voice_sample(
+        self, user_id: str, voice_id: str, audio_data, file_extension: str = "wav"
+    ) -> str:
         """Mock upload that returns fake URL."""
         return f"https://test-bucket.s3.amazonaws.com/voices/{user_id}/{voice_id}.{file_extension}"
-    
+
     async def delete_voice_sample(self, s3_url: str) -> bool:
         """Mock delete."""
         return True
-    
+
     async def generate_presigned_url(self, s3_key: str, expiration: int = 3600) -> str:
         """Mock presigned URL."""
         return f"https://test-bucket.s3.amazonaws.com/{s3_key}?signed=true"
@@ -134,12 +138,12 @@ def mock_s3_service():
 
 class MockStripe:
     """Mock Stripe client for testing."""
-    
+
     @staticmethod
     def verify_signature(payload: bytes, sig_header: str, secret: str):
         """Mock signature verification."""
         return True
-    
+
     @staticmethod
     def create_checkout_session(params: dict):
         """Mock checkout session creation."""
@@ -157,6 +161,7 @@ def mock_stripe():
 
 # Test data factories
 
+
 def create_test_user(user_id: str = "test_user") -> dict:
     """Create test user data."""
     return {
@@ -169,7 +174,7 @@ def create_test_user(user_id: str = "test_user") -> dict:
 def create_test_subscription(user_id: str, plan_id: str = "pro") -> dict:
     """Create test subscription data."""
     from datetime import datetime, timedelta
-    
+
     return {
         "user_id": user_id,
         "plan_id": plan_id,

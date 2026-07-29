@@ -6,10 +6,10 @@ from typing import Any
 import aiohttp
 
 from app.services.voice.providers.base import (
-    VoiceProvider,
-    VoiceProviderError,
     VoiceCloneRequest,
     VoiceCloneResponse,
+    VoiceProvider,
+    VoiceProviderError,
     VoiceSynthesisRequest,
     VoiceSynthesisResponse,
 )
@@ -41,9 +41,7 @@ class NvidiaProvider(VoiceProvider):
             "Use pretrained voices or deploy custom model."
         )
 
-    async def synthesize_speech(
-        self, request: VoiceSynthesisRequest
-    ) -> VoiceSynthesisResponse:
+    async def synthesize_speech(self, request: VoiceSynthesisRequest) -> VoiceSynthesisResponse:
         """Synthesize speech using NVIDIA NeMo."""
 
         if not self.api_key:
@@ -57,31 +55,31 @@ class NvidiaProvider(VoiceProvider):
                 "sample_rate": 44100,
             }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            async with (
+                aiohttp.ClientSession() as session,
+                session.post(
                     f"{self.BASE_URL}/audio/generations",
                     headers={
                         "Authorization": f"Bearer {self.api_key}",
                         "Content-Type": "application/json",
                     },
                     json=payload,
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        raise VoiceProviderError(
-                            f"NVIDIA synthesis error: {response.status} - {error_text}"
-                        )
-
-                    audio_data = await response.read()
-
-                    logger.info(
-                        f"Speech synthesized with NVIDIA: {len(audio_data)} bytes"
+                ) as response,
+            ):
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise VoiceProviderError(
+                        f"NVIDIA synthesis error: {response.status} - {error_text}"
                     )
 
-                    return VoiceSynthesisResponse(
-                        audio_data=audio_data,
-                        audio_format="wav",
-                    )
+                audio_data = await response.read()
+
+                logger.info(f"Speech synthesized with NVIDIA: {len(audio_data)} bytes")
+
+                return VoiceSynthesisResponse(
+                    audio_data=audio_data,
+                    audio_format="wav",
+                )
 
         except Exception as e:
             logger.error(f"NVIDIA speech synthesis failed: {e}")

@@ -3,6 +3,8 @@
 import logging
 from typing import Any
 
+import aiofiles
+
 from app.services.voice.providers.base import (
     VoiceCloneRequest,
     VoiceCloneResponse,
@@ -39,7 +41,9 @@ class CoquiProvider(VoiceProvider):
                 self.tts = TTS(self.model_name)
                 logger.info("Coqui TTS model loaded")
             except ImportError as e:
-                raise VoiceProviderError("Coqui TTS not installed. Install with: pip install TTS") from e
+                raise VoiceProviderError(
+                    "Coqui TTS not installed. Install with: pip install TTS"
+                ) from e
             except Exception as e:
                 raise VoiceProviderError(f"Failed to load TTS model: {e}") from e
 
@@ -68,8 +72,8 @@ class CoquiProvider(VoiceProvider):
             )
 
             # Read audio data
-            with open(output_path, "rb") as f:
-                audio_data = f.read()
+            async with aiofiles.open(output_path, "rb") as f:
+                audio_data = await f.read()
 
             # Clean up
             import os

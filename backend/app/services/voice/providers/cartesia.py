@@ -3,13 +3,14 @@
 import logging
 from typing import Any
 
+import aiofiles
 import aiohttp
 
 from app.services.voice.providers.base import (
-    VoiceProvider,
-    VoiceProviderError,
     VoiceCloneRequest,
     VoiceCloneResponse,
+    VoiceProvider,
+    VoiceProviderError,
     VoiceSynthesisRequest,
     VoiceSynthesisResponse,
 )
@@ -42,50 +43,49 @@ class CartesiaProvider(VoiceProvider):
 
         try:
             # Read audio file
-            with open(request.audio_file_path, "rb") as f:
-                audio_data = f.read()
+            async with aiofiles.open(request.audio_file_path, "rb") as f:
+                audio_data = await f.read()
 
             # Cartesia voice cloning API
-            async with aiohttp.ClientSession() as session:
-                # Create embedding from audio
-                async with session.post(
+            async with (
+                aiohttp.ClientSession() as session,
+                session.post(
                     f"{self.BASE_URL}/voices/embed",
                     headers={
                         "X-API-Key": self.api_key,
                         "Content-Type": "application/octet-stream",
                     },
                     data=audio_data,
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        raise VoiceProviderError(
-                            f"Cartesia API error: {response.status} - {error_text}"
-                        )
-
-                    result = await response.json()
-                    embedding = result.get("embedding")
-
-                    if not embedding:
-                        raise VoiceProviderError("No embedding returned from Cartesia")
-
-                    # Store embedding as voice_id
-                    voice_id = f"cartesia_embedding_{request.user_id}_{request.voice_name}"
-
-                    logger.info(f"Voice cloned successfully with Cartesia: {voice_id}")
-
-                    return VoiceCloneResponse(
-                        voice_id=voice_id,
-                        voice_name=request.voice_name,
-                        provider=self.provider_name,
+                ) as response,
+            ):
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise VoiceProviderError(
+                        f"Cartesia API error: {response.status} - {error_text}"
                     )
+
+                result = await response.json()
+                embedding = result.get("embedding")
+
+                if not embedding:
+                    raise VoiceProviderError("No embedding returned from Cartesia")
+
+                # Store embedding as voice_id
+                voice_id = f"cartesia_embedding_{request.user_id}_{request.voice_name}"
+
+                logger.info(f"Voice cloned successfully with Cartesia: {voice_id}")
+
+                return VoiceCloneResponse(
+                    voice_id=voice_id,
+                    voice_name=request.voice_name,
+                    provider=self.provider_name,
+                )
 
         except Exception as e:
             logger.error(f"Cartesia voice cloning failed: {e}")
             raise VoiceProviderError(f"Failed to clone voice: {e}") from e
 
-    async def synthesize_speech(
-        self, request: VoiceSynthesisRequest
-    ) -> VoiceSynthesisResponse:
+    async def synthesize_speech(self, request: VoiceSynthesisRequest) -> VoiceSynthesisResponse:
         """Synthesize speech using Cartesia."""
 
         if not self.api_key:
@@ -106,8 +106,9 @@ class CartesiaProvider(VoiceProvider):
                 },
             }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            async with (
+                aiohttp.ClientSession() as session,
+                session.post(
                     f"{self.BASE_URL}/tts/bytes",
                     headers={
                         "X-API-Key": self.api_key,
@@ -115,23 +116,22 @@ class CartesiaProvider(VoiceProvider):
                         "Content-Type": "application/json",
                     },
                     json=payload,
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        raise VoiceProviderError(
-                            f"Cartesia synthesis error: {response.status} - {error_text}"
-                        )
-
-                    audio_data = await response.read()
-
-                    logger.info(
-                        f"Speech synthesized with Cartesia: {len(audio_data)} bytes"
+                ) as response,
+            ):
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise VoiceProviderError(
+                        f"Cartesia synthesis error: {response.status} - {error_text}"
                     )
 
-                    return VoiceSynthesisResponse(
-                        audio_data=audio_data,
-                        audio_format="wav",
-                    )
+                audio_data = await response.read()
+
+                logger.info(f"Speech synthesized with Cartesia: {len(audio_data)} bytes")
+
+                return VoiceSynthesisResponse(
+                    audio_data=audio_data,
+                    audio_format="wav",
+                )
 
         except Exception as e:
             logger.error(f"Cartesia speech synthesis failed: {e}")
@@ -144,21 +144,23 @@ class CartesiaProvider(VoiceProvider):
             raise VoiceProviderError("Cartesia API key not configured")
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
+            async with (
+                aiohttp.ClientSession() as session,
+                session.get(
                     f"{self.BASE_URL}/voices",
                     headers={"X-API-Key": self.api_key},
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        raise VoiceProviderError(
-                            f"Cartesia API error: {response.status} - {error_text}"
-                        )
+                ) as response,
+            ):
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise VoiceProviderError(
+                        f"Cartesia API error: {response.status} - {error_text}"
+                    )
 
-                    result = await response.json()
-                    voices = result.get("voices", [])
+                result = await response.json()
+                voices = result.get("voices", [])
 
-                    return voices
+                return voices
 
         except Exception as e:
             logger.error(f"Failed to list Cartesia voices: {e}")

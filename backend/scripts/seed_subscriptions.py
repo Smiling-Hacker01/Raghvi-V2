@@ -1,11 +1,10 @@
 """Seed default subscription plans."""
 
 import asyncio
-from datetime import datetime
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.core.config import get_settings
 from app.models.subscription import SubscriptionPlan
@@ -13,11 +12,11 @@ from app.models.subscription import SubscriptionPlan
 
 async def seed_plans():
     """Seed default subscription plans."""
-    
+
     settings = get_settings()
     engine = create_async_engine(settings.database_url)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
+
     plans = [
         {
             "id": "free",
@@ -56,24 +55,24 @@ async def seed_plans():
             "family_sharing_slots": 3,
         },
     ]
-    
+
     async with async_session() as session:
         for plan_data in plans:
             # Check if plan already exists
             existing = await session.scalar(
                 select(SubscriptionPlan).where(SubscriptionPlan.id == plan_data["id"])
             )
-            
+
             if existing:
                 print(f"✓ Plan '{plan_data['id']}' already exists")
                 continue
-            
+
             plan = SubscriptionPlan(**plan_data)
             session.add(plan)
             print(f"+ Created plan '{plan_data['id']}'")
-        
+
         await session.commit()
-    
+
     await engine.dispose()
     print("\n✓ Seeding complete!")
 
