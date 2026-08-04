@@ -109,7 +109,7 @@ async def test_github_adapter_coverage():
 
     from app.services.ai.providers.github import GitHubModelsAdapter
 
-    with patch("app.core.config.get_settings") as mock_settings:
+    with patch("app.services.ai.providers.github.get_settings") as mock_settings:
         mock_settings.return_value.github_token = "github_pat_test"
         mock_settings.return_value.github_model = "gpt-4o"
         mock_settings.return_value.github_timeout_seconds = 30
@@ -144,7 +144,7 @@ async def test_groq_adapter_coverage():
 
     from app.services.ai.providers.groq import GroqAdapter
 
-    with patch("app.core.config.get_settings") as mock_settings:
+    with patch("app.services.ai.providers.groq.get_settings") as mock_settings:
         mock_settings.return_value.groq_api_key = "gsk_test_key"
         mock_settings.return_value.groq_model = "llama-3.1-8b-instant"
         mock_settings.return_value.groq_timeout_seconds = 30
