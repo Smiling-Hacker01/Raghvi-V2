@@ -72,7 +72,7 @@ class S3Service:
                     "Metadata": {
                         "user_id": user_id,
                         "voice_id": str(voice_id),
-                        "uploaded_at": datetime.utcnow().isoformat(),
+                        "uploaded_at": datetime.now(UTC).isoformat(),
                     },
                 },
             )

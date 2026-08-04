@@ -137,6 +137,16 @@ async def test_github_adapter_coverage():
             assert response == "Test response"
             assert tokens == 15
 
+            import pytest
+            with patch("asyncio.sleep"):
+                mock_create.side_effect = Exception("API error")
+                with pytest.raises(Exception):
+                    await adapter.send_message(messages=[{"role": "user"}])
+
+                mock_create.side_effect = Exception("rate_limit")
+                with pytest.raises(Exception):
+                    await adapter.send_message(messages=[{"role": "user"}])
+
 
 async def test_groq_adapter_coverage():
     """Test Groq adapter init, model info, token counting, and send_message."""
@@ -171,6 +181,16 @@ async def test_groq_adapter_coverage():
             )
             assert resp == "Groq reply"
             assert tokens == 12
+
+            import pytest
+            with patch("asyncio.sleep"):
+                mock_create.side_effect = Exception("API error")
+                with pytest.raises(Exception):
+                    await adapter.send_message(messages=[{"role": "user"}])
+
+                mock_create.side_effect = Exception("429 Too Many Requests")
+                with pytest.raises(Exception):
+                    await adapter.send_message(messages=[{"role": "user"}])
 
 
 async def test_chat_xml_parsing():

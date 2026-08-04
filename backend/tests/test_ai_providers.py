@@ -117,3 +117,13 @@ class TestGeminiAdapter:
 
                 assert response == "Hello from Gemini"
                 assert tokens > 0
+            with patch.object(adapter, "_call_gemini", side_effect=Exception("API error")):
+                import pytest
+                with patch("asyncio.sleep"):
+                    with pytest.raises(Exception):
+                        await adapter.send_message(messages=[{"role": "user", "content": "hi"}])
+
+            with patch.object(adapter, "_call_gemini", side_effect=Exception("429")):
+                with patch("asyncio.sleep"):
+                    with pytest.raises(Exception):
+                        await adapter.send_message(messages=[{"role": "user", "content": "hi"}])
