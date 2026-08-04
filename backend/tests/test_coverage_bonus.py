@@ -138,14 +138,14 @@ async def test_github_adapter_coverage():
             assert tokens == 15
 
             import pytest
-            with patch("asyncio.sleep"):
-                mock_create.side_effect = Exception("API error")
-                with pytest.raises(Exception):
-                    await adapter.send_message(messages=[{"role": "user"}])
 
+            with patch("asyncio.sleep"), pytest.raises(Exception, match="API error"):
+                mock_create.side_effect = Exception("API error")
+                await adapter.send_message(messages=[{"role": "user"}], system_prompt="")
+
+            with patch("asyncio.sleep"), pytest.raises(Exception, match="rate_limit"):
                 mock_create.side_effect = Exception("rate_limit")
-                with pytest.raises(Exception):
-                    await adapter.send_message(messages=[{"role": "user"}])
+                await adapter.send_message(messages=[{"role": "user"}], system_prompt="")
 
 
 async def test_groq_adapter_coverage():
@@ -183,14 +183,14 @@ async def test_groq_adapter_coverage():
             assert tokens == 12
 
             import pytest
-            with patch("asyncio.sleep"):
-                mock_create.side_effect = Exception("API error")
-                with pytest.raises(Exception):
-                    await adapter.send_message(messages=[{"role": "user"}])
 
+            with patch("asyncio.sleep"), pytest.raises(Exception, match="API error"):
+                mock_create.side_effect = Exception("API error")
+                await adapter.send_message(messages=[{"role": "user"}], system_prompt="")
+
+            with patch("asyncio.sleep"), pytest.raises(Exception, match="429"):
                 mock_create.side_effect = Exception("429 Too Many Requests")
-                with pytest.raises(Exception):
-                    await adapter.send_message(messages=[{"role": "user"}])
+                await adapter.send_message(messages=[{"role": "user"}], system_prompt="")
 
 
 async def test_chat_xml_parsing():
