@@ -30,7 +30,11 @@ class ElevenLabsProvider(VoiceProvider):
     def __init__(self, config: dict[str, Any]):
         super().__init__(config)
         self.api_key = config.get("api_key", "")
-        self.model_id = config.get("model_id", "eleven_multilingual_v2")
+        model_id = config.get("model_id", "eleven_multilingual_v2")
+        # Upgrade deprecated models automatically
+        if model_id in ["eleven_monolingual_v1", "eleven_multilingual_v1"]:
+            model_id = "eleven_multilingual_v2"
+        self.model_id = model_id
 
         if not self.api_key:
             logger.warning("ElevenLabs API key not configured")
@@ -96,19 +100,39 @@ class ElevenLabsProvider(VoiceProvider):
             raise VoiceProviderError("ElevenLabs API key not configured")
 
         try:
+            # Detect if text has Devanagari (Hindi) script
+            has_devanagari = any("\u0900" <= ch <= "\u097f" for ch in request.text)
+            language_code = "hi" if has_devanagari else "en"
+
             payload = {
                 "text": request.text,
                 "model_id": self.model_id,
+                "language_code": language_code,
                 "voice_settings": {
                     "stability": 0.5,
                     "similarity_boost": 0.75,
                 },
             }
 
+            # Handle voice_id format: if a UUID or Deepgram name was passed, use default voice
+            import re
+
+            is_uuid = bool(
+                re.match(
+                    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                    request.voice_id,
+                )
+            )
+            voice_id = (
+                "EXAVITQu4vr4xnSDxMaL"
+                if (is_uuid or request.voice_id.startswith("aura-"))
+                else request.voice_id
+            )
+
             async with (
                 aiohttp.ClientSession() as session,
                 session.post(
-                    f"{self.BASE_URL}/text-to-speech/{request.voice_id}",
+                    f"{self.BASE_URL}/text-to-speech/{voice_id}",
                     headers={
                         "xi-api-key": self.api_key,
                         "Content-Type": "application/json",

@@ -30,7 +30,10 @@ class CartesiaProvider(VoiceProvider):
     def __init__(self, config: dict[str, Any]):
         super().__init__(config)
         self.api_key = config.get("api_key", "")
-        self.model_id = config.get("model_id", "sonic-multilingual")
+        model_id = config.get("model_id", "sonic")
+        if model_id in ["sonic-multilingual", "sonic-english"]:
+            model_id = "sonic"
+        self.model_id = model_id
 
         if not self.api_key:
             logger.warning("Cartesia API key not configured")
@@ -114,17 +117,34 @@ class CartesiaProvider(VoiceProvider):
                 if mapped:
                     cartesia_emotion = [mapped]
 
+            import re
+
+            # Cartesia requires a valid UUID format (e.g. 79f8b5e2-2a37-470d-a80f-e88dff78f869)
+            is_uuid = bool(
+                re.match(
+                    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                    request.voice_id,
+                )
+            )
+            # Default Cartesia voice ID (Helpful Woman - Sonic Multilingual)
+            voice_id = request.voice_id if is_uuid else "a0e99841-438c-4a64-b679-ae501e7d6091"
+
             voice_config = {
                 "mode": "id",
-                "id": request.voice_id,
+                "id": voice_id,
             }
 
             if cartesia_emotion:
                 voice_config["__experimental_controls"] = {"emotion": cartesia_emotion}
 
+            # Detect Hindi/Devanagari and pass correct language to sonic-multilingual
+            has_devanagari = any("\u0900" <= ch <= "\u097f" for ch in request.text)
+            language = "hi" if has_devanagari else (request.language or "en")
+
             payload = {
                 "model_id": self.model_id,
                 "transcript": request.text,
+                "language": language,
                 "voice": voice_config,
                 "output_format": {
                     "container": "wav",

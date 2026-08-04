@@ -52,7 +52,7 @@ async def seed_creator_profile(session: AsyncSession) -> CreatorProfile:
         # Fetch primary creator profile (id="1")
         profile = await session.scalar(select(CreatorProfile).where(CreatorProfile.id == "1"))
 
-        now = datetime.now(UTC)
+        now = datetime.now(UTC).replace(tzinfo=None)
         if not profile:
             logger.info("Seeding initial CreatorProfile into database...")
             profile = CreatorProfile(

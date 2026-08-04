@@ -87,7 +87,7 @@ async def test_create_subscription(test_session):
     assert subscription.user_id == user_id
     assert subscription.plan_id == "pro"
     assert subscription.is_active is True
-    assert subscription.expires_at > datetime.now(UTC)
+    assert subscription.expires_at > datetime.now(UTC).replace(tzinfo=None)
 
 
 @pytest.mark.asyncio
@@ -189,7 +189,7 @@ async def test_subscription_expiration_check(test_session):
     )
 
     # Manually set to expired
-    subscription.expires_at = datetime.now(UTC) - timedelta(days=1)
+    subscription.expires_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)
     await test_session.commit()
 
     # Refresh

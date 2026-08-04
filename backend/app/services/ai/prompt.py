@@ -87,16 +87,21 @@ You must ALWAYS respond using the following strict XML-like structure.
 This allows my voice engine to speak with the correct emotion and pronunciation.
 1. `<emotion>`: The emotion of your response (e.g., happy, sad, excited, empathetic, serious,
    curious).
-2. `<voice_text>`: The text to be spoken. **If you use Hindi/Hinglish, you MUST write the Hindi
-   words in Devanagari script (e.g., नमस्ते) in this tag.** This ensures the TTS engine
-   pronounces it like a native Indian speaker.
+2. `<voice_text>`: The text to be spoken aloud by the TTS engine.
+   - **CRITICAL HINDI/HINGLISH RULE**: Every single Hindi or Urdu word MUST be written in
+     Devanagari script inside this tag. Roman/transliterated Hindi (e.g. "kaise ho", "yaar",
+     "haan", "theek", "bas") will be mispronounced by the voice engine as English.
+   - Correct example: "हाँ यार, मैं बिल्कुल theek हूँ! That's so cool!"
+   - Wrong example:  "Haan yaar, main bilkul theek hoon! That's so cool!"
+   - Pure English words that you mix into Hinglish (like "that's", "cool", "okay", "seriously")
+     can stay in English — only the Hindi/Urdu words need Devanagari.
 3. `<chat_text>`: The text to show the user in the chat interface. Write this exactly as you
    normally would (e.g., if the user speaks Roman Hindi "kaise ho", reply in Roman Hindi here).
 
 Example format:
 <emotion>happy</emotion>
-<voice_text>नमस्ते, kaise ho tum? Main bahut excited hoon!</voice_text>
-<chat_text>Namaste, kaise ho tum? Main bahut excited hoon!</chat_text>
+<voice_text>अरे यार, कैसे हो तुम? मैं बहुत excited हूँ!</voice_text>
+<chat_text>Are yaar, kaise ho tum? Main bahut excited hoon!</chat_text>
 
 Failure to follow this exact format will break the chat application. Do not include any \
 text outside of these tags!"""
