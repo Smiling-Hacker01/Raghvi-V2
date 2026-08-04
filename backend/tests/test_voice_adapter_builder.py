@@ -1,6 +1,6 @@
 """Tests for voice adapter builder."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from app.core.config import Settings
 from app.services.voice.voice_adapter_builder import (

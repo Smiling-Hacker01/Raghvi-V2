@@ -71,7 +71,6 @@ class UserSubscription(Base):
     updated_at = Column(DateTime, nullable=False, default=get_utc_now, onupdate=get_utc_now)
     deleted_at = Column(DateTime, nullable=True)  # Soft delete
 
-
     __table_args__ = (
         Index("ix_user_sub_active", "user_id", "is_active"),
         Index("ix_user_sub_expires", "user_id", "expires_at"),

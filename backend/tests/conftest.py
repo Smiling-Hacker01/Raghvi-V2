@@ -86,6 +86,7 @@ async def test_session(test_db_engine) -> AsyncGenerator[AsyncSession]:
 def test_db(test_db_engine):
     """Create test database session factory (callable fixture)."""
     from contextlib import asynccontextmanager
+
     from sqlalchemy import select
 
     @asynccontextmanager
@@ -164,6 +165,7 @@ async def test_user(user):
 async def client():
     """Create test HTTP client."""
     from collections.abc import AsyncGenerator
+
     from httpx import ASGITransport, AsyncClient
     from sqlalchemy import select
 
@@ -229,7 +231,6 @@ async def client():
 @pytest.fixture
 async def auth_headers(client):
     """Create authenticated user and return auth headers."""
-    from app.security.password import hash_password
 
     # Register user
     signup_response = await client.post(
@@ -350,7 +351,6 @@ def create_test_subscription(user_id: str, plan_id: str = "pro") -> dict:
         "expires_at": now + timedelta(days=30),
         "is_active": True,
     }
-
 
 
 def create_test_voice(user_id: str, voice_name: str = "Test Voice") -> dict:

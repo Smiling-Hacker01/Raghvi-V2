@@ -52,4 +52,3 @@ def test_get_ai_client_singleton():
             mock_cls.assert_called_once()
     finally:
         client_module._ai_client_instance = None
-

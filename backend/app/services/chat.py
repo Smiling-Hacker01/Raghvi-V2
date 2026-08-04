@@ -1,6 +1,7 @@
 """Chat service - business logic for chat operations."""
 
 import logging
+import re
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -207,16 +208,15 @@ class ChatService:
             )
 
             # Parse XML-like structure for emotion, voice, and chat
-            import re
-            
             emotion = "neutral"
             voice_text = raw_response_text
             chat_text = raw_response_text
-            
-            emotion_match = re.search(r"<emotion>(.*?)</emotion>", raw_response_text, re.DOTALL | re.IGNORECASE)
-            voice_match = re.search(r"<voice_text>(.*?)</voice_text>", raw_response_text, re.DOTALL | re.IGNORECASE)
-            chat_match = re.search(r"<chat_text>(.*?)</chat_text>", raw_response_text, re.DOTALL | re.IGNORECASE)
-            
+
+            _flags = re.DOTALL | re.IGNORECASE
+            emotion_match = re.search(r"<emotion>(.*?)</emotion>", raw_response_text, _flags)
+            voice_match = re.search(r"<voice_text>(.*?)</voice_text>", raw_response_text, _flags)
+            chat_match = re.search(r"<chat_text>(.*?)</chat_text>", raw_response_text, _flags)
+
             if emotion_match:
                 emotion = emotion_match.group(1).strip().lower()
             if voice_match:

@@ -35,7 +35,9 @@ async def test_chat_send_with_voice(client: AsyncClient, auth_headers: dict):
     mock_adapter.synthesize_speech = AsyncMock(return_value=mock_audio_resp)
 
     with (
-        patch("app.services.voice.voice_adapter_builder.get_voice_adapter", return_value=mock_adapter),
+        patch(
+            "app.services.voice.voice_adapter_builder.get_voice_adapter", return_value=mock_adapter
+        ),
         patch(
             "app.services.chat.get_ai_client",
             return_value=MagicMock(

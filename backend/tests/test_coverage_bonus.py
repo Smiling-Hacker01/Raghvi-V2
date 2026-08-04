@@ -1,16 +1,19 @@
+from datetime import UTC, datetime
+
 import pytest
+
+from app.models.memory import Memory
+from app.models.task import Task
 from app.services.ai.prompt import (
     build_system_prompt,
+    get_creator_context_cached,
     get_error_response,
     get_memory_full_context,
     invalidate_creator_cache,
-    get_creator_context_cached,
 )
-from app.models.memory import Memory
-from app.models.task import Task
-from datetime import datetime, timezone
 
 pytestmark = pytest.mark.asyncio
+
 
 async def test_prompt_generation_functions():
     # Test error response
@@ -19,26 +22,23 @@ async def test_prompt_generation_functions():
     assert len(err) > 0
 
     # Test memory full context
-    memories = [
-        Memory(id="1", content="I like cats"),
-        Memory(id="2", content="I live in NY")
-    ]
+    memories = [Memory(id="1", content="I like cats"), Memory(id="2", content="I live in NY")]
     mem_full = get_memory_full_context(memories)
     assert "I like cats" in mem_full
-    
+
     empty_mem = get_memory_full_context([])
     assert "getting to know me" in empty_mem
 
     # Test build system prompt
     tasks = [
-        Task(id="1", title="Buy groceries", priority="high", due_date=datetime.now(timezone.utc)),
+        Task(id="1", title="Buy groceries", priority="high", due_date=datetime.now(UTC)),
     ]
     prompt = await build_system_prompt(user_memories=memories, session=None, user_tasks=tasks)
     assert isinstance(prompt, str)
     assert "Raghvi" in prompt
     assert "I like cats" in prompt
     assert "Buy groceries" in prompt
-    
+
     # Test creator cache
     invalidate_creator_cache()
     cached1 = await get_creator_context_cached(None)
@@ -46,96 +46,90 @@ async def test_prompt_generation_functions():
     cached2 = await get_creator_context_cached(None)
     assert cached1 == cached2
 
+
 async def test_stripe_webhook_invalid_payload(client):
     from unittest.mock import patch
-    import stripe
+
     with patch("stripe.Webhook.construct_event", side_effect=ValueError("Invalid payload")):
         response = await client.post(
-            "/webhooks/stripe", 
-            content=b"{}", 
-            headers={"stripe-signature": "test"}
+            "/webhooks/stripe", content=b"{}", headers={"stripe-signature": "test"}
         )
         assert response.status_code == 400
         assert response.json()["detail"] == "Invalid payload"
 
+
 async def test_stripe_webhook_invalid_signature(client):
     from unittest.mock import patch
+
     import stripe
-    with patch("stripe.Webhook.construct_event", side_effect=stripe.error.SignatureVerificationError("Invalid sig", "sig")):
+
+    with patch(
+        "stripe.Webhook.construct_event",
+        side_effect=stripe.error.SignatureVerificationError("Invalid sig", "sig"),
+    ):
         response = await client.post(
-            "/webhooks/stripe", 
-            content=b"{}", 
-            headers={"stripe-signature": "test"}
+            "/webhooks/stripe", content=b"{}", headers={"stripe-signature": "test"}
         )
         assert response.status_code == 400
         assert response.json()["detail"] == "Invalid signature"
 
+
 async def test_stripe_webhook_checkout_completed(client):
     from unittest.mock import patch
+
     event = {
         "type": "checkout.session.completed",
-        "data": {
-            "object": {
-                "metadata": {
-                    "user_id": "test_user_id",
-                    "plan_id": "pro"
-                }
-            }
-        }
+        "data": {"object": {"metadata": {"user_id": "test_user_id", "plan_id": "pro"}}},
     }
     with patch("stripe.Webhook.construct_event", return_value=event):
         response = await client.post(
-            "/webhooks/stripe", 
-            content=b"{}", 
-            headers={"stripe-signature": "test"}
+            "/webhooks/stripe", content=b"{}", headers={"stripe-signature": "test"}
         )
         assert response.status_code == 200
         assert response.json()["status"] == "success"
+
 
 async def test_stripe_webhook_checkout_completed_no_user(client):
     from unittest.mock import patch
+
     event = {
         "type": "checkout.session.completed",
-        "data": {
-            "object": {
-                "metadata": {
-                    "plan_id": "pro"
-                }
-            }
-        }
+        "data": {"object": {"metadata": {"plan_id": "pro"}}},
     }
     with patch("stripe.Webhook.construct_event", return_value=event):
         response = await client.post(
-            "/webhooks/stripe", 
-            content=b"{}", 
-            headers={"stripe-signature": "test"}
+            "/webhooks/stripe", content=b"{}", headers={"stripe-signature": "test"}
         )
         assert response.status_code == 200
         assert response.json()["status"] == "success"
 
+
 async def test_github_adapter_coverage():
+    from unittest.mock import AsyncMock, patch
+
     from app.services.ai.providers.github import GitHubModelsAdapter
-    from unittest.mock import patch, AsyncMock
-    
+
     with patch("app.core.config.get_settings") as mock_settings:
         mock_settings.return_value.github_token = "github_pat_test"
         mock_settings.return_value.github_model = "gpt-4o"
         mock_settings.return_value.github_timeout_seconds = 30
-        
+
         adapter = GitHubModelsAdapter()
         assert await adapter.validate_config()
-        
+
         info = adapter.get_model_info()
         assert info["provider"] == "github"
-        
+
         assert adapter._count_tokens("test text") == 2
-        
-        with patch.object(adapter.client.chat.completions, "create", new_callable=AsyncMock) as mock_create:
+
+        with patch.object(
+            adapter.client.chat.completions, "create", new_callable=AsyncMock
+        ) as mock_create:
             mock_create.return_value.choices = [AsyncMock()]
             mock_create.return_value.choices[0].message.content = "Test response"
             mock_create.return_value.usage.prompt_tokens = 10
             mock_create.return_value.usage.completion_tokens = 5
-            
+
             response, tokens = await adapter.send_message(
                 messages=[{"role": "user", "content": "hi"}],
                 system_prompt="sys",
@@ -146,8 +140,9 @@ async def test_github_adapter_coverage():
 
 async def test_groq_adapter_coverage():
     """Test Groq adapter init, model info, token counting, and send_message."""
+    from unittest.mock import AsyncMock, patch
+
     from app.services.ai.providers.groq import GroqAdapter
-    from unittest.mock import patch, AsyncMock
 
     with patch("app.core.config.get_settings") as mock_settings:
         mock_settings.return_value.groq_api_key = "gsk_test_key"
@@ -162,7 +157,9 @@ async def test_groq_adapter_coverage():
 
         assert adapter._count_tokens("hello world") == 2
 
-        with patch.object(adapter.client.chat.completions, "create", new_callable=AsyncMock) as mock_create:
+        with patch.object(
+            adapter.client.chat.completions, "create", new_callable=AsyncMock
+        ) as mock_create:
             mock_create.return_value.choices = [AsyncMock()]
             mock_create.return_value.choices[0].message.content = "Groq reply"
             mock_create.return_value.usage.prompt_tokens = 8
@@ -236,9 +233,11 @@ async def test_cartesia_emotion_mapping():
 
 async def test_github_adapter_invalid_token():
     """Test GitHubModelsAdapter raises on invalid token format."""
-    from app.services.ai.providers.github import GitHubModelsAdapter
     from unittest.mock import patch
+
     import pytest
+
+    from app.services.ai.providers.github import GitHubModelsAdapter
 
     with patch("app.services.ai.providers.github.get_settings") as mock_settings:
         mock_settings.return_value.github_token = "bad_token"
@@ -252,9 +251,11 @@ async def test_github_adapter_invalid_token():
 
 async def test_groq_adapter_invalid_token():
     """Test GroqAdapter raises on invalid token format."""
-    from app.services.ai.providers.groq import GroqAdapter
     from unittest.mock import patch
+
     import pytest
+
+    from app.services.ai.providers.groq import GroqAdapter
 
     with patch("app.services.ai.providers.groq.get_settings") as mock_settings:
         mock_settings.return_value.groq_api_key = "bad_key"

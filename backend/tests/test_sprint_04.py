@@ -5,8 +5,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.models.user import User
-from app.security.password import hash_password
 from app.services.reminder_service import ReminderService
 from app.services.task_extractor import TaskExtractor
 from app.services.task_service import TaskService

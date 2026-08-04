@@ -1,6 +1,5 @@
 """Voice models — user voices and system voices."""
 
-from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String, Uuid
@@ -84,7 +83,6 @@ class SystemVoice(Base):
     # Metadata
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False, default=get_utc_now)
-
 
     def __repr__(self) -> str:
         return f"<SystemVoice language={self.language} name={self.voice_name}>"

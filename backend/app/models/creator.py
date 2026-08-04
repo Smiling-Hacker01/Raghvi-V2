@@ -1,7 +1,5 @@
 """Creator profile — information about Raghvi's father (Vishal Singh Kushwaha)."""
 
-from datetime import datetime
-
 from sqlalchemy import Column, DateTime, String, Text
 
 from app.db.base import Base, get_utc_now
@@ -56,7 +54,6 @@ class CreatorProfile(Base):
         onupdate=get_utc_now,
     )
     last_sync_social = Column(DateTime(timezone=True), nullable=True)  # Last social media sync
-
 
     def __repr__(self) -> str:
         return f"<CreatorProfile name={self.name}>"

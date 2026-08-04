@@ -1,7 +1,7 @@
 """Tests for AIProviderRegistry."""
 
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -36,7 +36,9 @@ def test_ai_provider_registry_register_and_get():
 
 def test_ai_provider_registry_unknown_provider():
     AIProviderRegistry.reset()
-    with patch.dict(os.environ, {"AI_PROVIDER": "unknown_provider_xyz"}):
-        with pytest.raises(ValueError, match="Unknown AI provider"):
-            AIProviderRegistry.get_adapter()
+    with (
+        patch.dict(os.environ, {"AI_PROVIDER": "unknown_provider_xyz"}),
+        pytest.raises(ValueError, match="Unknown AI provider"),
+    ):
+        AIProviderRegistry.get_adapter()
     AIProviderRegistry.reset()

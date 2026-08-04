@@ -113,16 +113,14 @@ class CartesiaProvider(VoiceProvider):
                 mapped = emotion_map.get(request.emotion.lower())
                 if mapped:
                     cartesia_emotion = [mapped]
-                    
+
             voice_config = {
                 "mode": "id",
                 "id": request.voice_id,
             }
-            
+
             if cartesia_emotion:
-                voice_config["__experimental_controls"] = {
-                    "emotion": cartesia_emotion
-                }
+                voice_config["__experimental_controls"] = {"emotion": cartesia_emotion}
 
             payload = {
                 "model_id": self.model_id,

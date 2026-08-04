@@ -1,6 +1,5 @@
 """Reminder model — task reminders and notifications."""
 
-from datetime import datetime
 from enum import StrEnum
 from uuid import uuid4
 
@@ -33,7 +32,6 @@ class Reminder(Base):
     sent_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=get_utc_now)
-
 
     __table_args__ = (
         Index("ix_reminder_user_sent", "user_id", "sent"),

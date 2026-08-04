@@ -1,5 +1,7 @@
 """Unit tests for creator profile endpoints, story generator, and seeding."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 from app.services.creator_seed import seed_creator_profile
@@ -16,9 +18,6 @@ async def test_seed_creator_profile(test_db):
         assert profile.name == "Vishal Singh Kushwaha"
         assert profile.girlfriend_name == "Disha Saini"
         assert profile.github_url == "https://github.com/Smiling-Hacker01"
-
-
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 @pytest.mark.asyncio
@@ -49,4 +48,3 @@ async def test_creator_story_generator(test_db):
                 session=session,
             )
             assert "Vishal" in story
-

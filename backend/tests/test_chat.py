@@ -63,9 +63,7 @@ class TestChatSend:
 
         assert response.status_code == 422
 
-    async def test_send_message_stores_in_db(
-        self, client: AsyncClient, auth_headers: dict
-    ):
+    async def test_send_message_stores_in_db(self, client: AsyncClient, auth_headers: dict):
         """Test that message is stored and can be retrieved via history."""
         # Send message
         response = await client.post(
@@ -97,7 +95,6 @@ class TestChatSend:
         assistant_msgs = [m for m in history_data["messages"] if m["role"] == "assistant"]
         assert len(assistant_msgs) > 0
         assert len(assistant_msgs[-1]["content"]) > 0
-
 
 
 class TestChatHistory:
