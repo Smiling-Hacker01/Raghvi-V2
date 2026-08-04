@@ -3,7 +3,7 @@
 from io import BytesIO
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 
@@ -18,7 +18,7 @@ def auth_headers():
 @pytest.mark.asyncio
 async def test_list_voices(auth_headers):
     """Test listing user voices."""
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/voices/", headers=auth_headers)
 
         # Without actual auth, this will fail
@@ -29,7 +29,7 @@ async def test_list_voices(auth_headers):
 @pytest.mark.asyncio
 async def test_upload_voice_validation():
     """Test voice upload validation."""
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Test without authentication
         response = await client.post(
             "/voices/upload",
@@ -44,7 +44,7 @@ async def test_upload_voice_validation():
 @pytest.mark.asyncio
 async def test_list_system_voices(auth_headers):
     """Test listing system voices."""
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/voices/system", headers=auth_headers)
 
         assert response.status_code in [200, 401]

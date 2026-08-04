@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from sqlalchemy import Boolean, Column, DateTime, Index, String, Uuid
 
-from app.db.base import Base
+from app.db.base import Base, get_utc_now
 
 
 class ReminderType(StrEnum):
@@ -32,7 +32,8 @@ class Reminder(Base):
     sent = Column(Boolean, default=False)
     sent_at = Column(DateTime, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_utc_now)
+
 
     __table_args__ = (
         Index("ix_reminder_user_sent", "user_id", "sent"),

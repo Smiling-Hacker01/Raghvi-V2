@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 
@@ -11,7 +11,7 @@ from app.main import app
 @pytest.mark.asyncio
 async def test_stripe_webhook_signature_required():
     """Test that webhook requires valid signature."""
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/webhooks/stripe",
             json={"type": "customer.subscription.created"},

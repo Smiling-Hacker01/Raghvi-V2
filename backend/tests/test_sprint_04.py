@@ -101,23 +101,6 @@ class TestTaskExtraction:
 class TestReminders:
     """Tests for task reminders."""
 
-    @pytest.fixture
-    async def user(self, test_db):
-        """Create test user."""
-        async with test_db() as session:
-            user = User(
-                id="550e8400-e29b-41d4-a716-446655440111",
-                username="remindertest",
-                email="remindertest@example.com",
-                password_hash=hash_password("TestPassword123"),
-                name="Reminder Test",
-                phone="1234567890",
-            )
-            session.add(user)
-            await session.commit()
-            await session.refresh(user)
-            return user
-
     async def test_create_reminder(self, test_db, user):
         """Test creating a reminder."""
         async with test_db() as session:

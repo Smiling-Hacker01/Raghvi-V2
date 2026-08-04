@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String, Uuid
 
-from app.db.base import Base
+from app.db.base import Base, get_utc_now
 
 
 class UserVoice(Base):
@@ -41,7 +41,7 @@ class UserVoice(Base):
     audio_sample_duration = Column(Integer, nullable=True)  # Seconds
 
     # Metadata
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=get_utc_now)
     deleted_at = Column(DateTime, nullable=True)  # Soft delete
 
     __table_args__ = (
@@ -57,7 +57,7 @@ class UserVoice(Base):
         """Check if voice is expired."""
         if not self.expires_at:
             return False
-        return datetime.utcnow() > self.expires_at
+        return get_utc_now() > self.expires_at
 
     @property
     def is_available(self) -> bool:
@@ -83,7 +83,8 @@ class SystemVoice(Base):
 
     # Metadata
     is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=get_utc_now)
+
 
     def __repr__(self) -> str:
         return f"<SystemVoice language={self.language} name={self.voice_name}>"

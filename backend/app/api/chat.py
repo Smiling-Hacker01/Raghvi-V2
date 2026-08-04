@@ -133,11 +133,12 @@ async def send_message_with_voice(
         # Use Deepgram-compatible default (works if Deepgram is configured)
         voice_id = default_voices[0].voice_id if default_voices else "aura-asteria-en"
 
-        # Create synthesis request
+        # Create synthesis request using the phonetic voice_text and emotion
         synthesis_request = VoiceSynthesisRequest(
-            text=result["assistant_message"],
+            text=result.get("voice_text", result["assistant_message"]),
             voice_id=voice_id,
             language=language,
+            emotion=result.get("emotion"),
         )
 
         logger.info(f"Synthesizing Raghvi's response for user {user_id}")

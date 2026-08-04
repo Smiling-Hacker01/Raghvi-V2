@@ -1,11 +1,11 @@
 """Subscription models — plans and user subscriptions."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String, Uuid
 
-from app.db.base import Base
+from app.db.base import Base, get_utc_now
 
 
 class SubscriptionPlan(Base):
@@ -35,8 +35,8 @@ class SubscriptionPlan(Base):
 
     # Metadata
     is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=get_utc_now)
+    updated_at = Column(DateTime, nullable=False, default=get_utc_now, onupdate=get_utc_now)
 
     def __repr__(self) -> str:
         return f"<SubscriptionPlan id={self.id} name={self.name} price=${self.price_usd}>"
@@ -54,7 +54,7 @@ class UserSubscription(Base):
     plan_id = Column(String(50), nullable=False)  # FK to SubscriptionPlan.id
 
     # Subscription lifecycle
-    started_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=False, default=get_utc_now)
     expires_at = Column(DateTime, nullable=False)  # When subscription expires
     renewed_at = Column(DateTime, nullable=True)  # Last renewal date
 
@@ -67,9 +67,10 @@ class UserSubscription(Base):
     auto_renew = Column(Boolean, nullable=False, default=True)
 
     # Metadata
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=get_utc_now)
+    updated_at = Column(DateTime, nullable=False, default=get_utc_now, onupdate=get_utc_now)
     deleted_at = Column(DateTime, nullable=True)  # Soft delete
+
 
     __table_args__ = (
         Index("ix_user_sub_active", "user_id", "is_active"),
@@ -85,12 +86,28 @@ class UserSubscription(Base):
     @property
     def is_expired(self) -> bool:
         """Check if subscription is expired."""
-        return datetime.utcnow() > self.expires_at
+        if not self.expires_at:
+            return True
+        # Make both timezone-aware for comparison
+        now_utc = datetime.now(UTC)
+        expires_at_utc = (
+            self.expires_at.replace(tzinfo=UTC)
+            if self.expires_at.tzinfo is None
+            else self.expires_at
+        )
+        return now_utc > expires_at_utc
 
     @property
     def days_remaining(self) -> int:
         """Days until expiration."""
         if self.is_expired:
             return 0
-        delta = self.expires_at - datetime.utcnow()
+        # Make both timezone-aware for comparison
+        now_utc = datetime.now(UTC)
+        expires_at_utc = (
+            self.expires_at.replace(tzinfo=UTC)
+            if self.expires_at.tzinfo is None
+            else self.expires_at
+        )
+        delta = expires_at_utc - now_utc
         return delta.days

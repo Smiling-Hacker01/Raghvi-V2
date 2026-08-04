@@ -2,8 +2,6 @@
 
 import pytest
 
-from app.models.user import User
-from app.security.password import hash_password
 from app.services.task_service import TaskService
 
 pytestmark = pytest.mark.asyncio
@@ -11,23 +9,6 @@ pytestmark = pytest.mark.asyncio
 
 class TestTaskService:
     """Tests for TaskService."""
-
-    @pytest.fixture
-    async def user(self, test_db):
-        """Create test user."""
-        async with test_db() as session:
-            user = User(
-                id="550e8400-e29b-41d4-a716-446655440000",
-                username="tasktest",
-                email="tasktest@example.com",
-                password_hash=hash_password("TestPassword123"),
-                name="Task Test User",
-                phone="1234567890",
-            )
-            session.add(user)
-            await session.commit()
-            await session.refresh(user)
-            return user
 
     async def test_create_task(self, test_db, user):
         """Test creating a task."""

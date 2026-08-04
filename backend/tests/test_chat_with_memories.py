@@ -2,8 +2,6 @@
 
 import pytest
 
-from app.models.user import User
-from app.security.password import hash_password
 from app.services.ai.prompt import build_system_prompt
 from app.services.memory.retrieval import get_retriever
 from app.services.memory.service import MemoryService
@@ -11,23 +9,6 @@ from app.services.memory.service import MemoryService
 
 class TestChatWithMemories:
     """Integration tests for chat with memory retrieval."""
-
-    @pytest.fixture
-    async def user(self, test_db):
-        """Create a test user."""
-        async with test_db() as session:
-            user = User(
-                id="550e8400-e29b-41d4-a716-446655440000",
-                username="chattest",
-                email="chattest@example.com",
-                password_hash=hash_password("TestPassword123"),
-                name="Chat Test User",
-                phone="1234567890",
-            )
-            session.add(user)
-            await session.commit()
-            await session.refresh(user)
-            return user
 
     @pytest.mark.asyncio
     async def test_chat_with_memory_context(self, test_db, user):

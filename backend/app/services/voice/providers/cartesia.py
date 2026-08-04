@@ -30,7 +30,7 @@ class CartesiaProvider(VoiceProvider):
     def __init__(self, config: dict[str, Any]):
         super().__init__(config)
         self.api_key = config.get("api_key", "")
-        self.model_id = config.get("model_id", "sonic-english")
+        self.model_id = config.get("model_id", "sonic-multilingual")
 
         if not self.api_key:
             logger.warning("Cartesia API key not configured")
@@ -92,13 +92,42 @@ class CartesiaProvider(VoiceProvider):
             raise VoiceProviderError("Cartesia API key not configured")
 
         try:
+            # Map LLM emotion to Cartesia's supported emotions
+            cartesia_emotion = None
+            if request.emotion:
+                emotion_map = {
+                    "happy": "positivity",
+                    "excited": "positivity",
+                    "joyful": "positivity",
+                    "sad": "sadness",
+                    "sadness": "sadness",
+                    "depressed": "sadness",
+                    "angry": "anger",
+                    "anger": "anger",
+                    "frustrated": "anger",
+                    "surprise": "surprise",
+                    "curious": "surprise",
+                    "shocked": "surprise",
+                }
+                # Find best match or default to None
+                mapped = emotion_map.get(request.emotion.lower())
+                if mapped:
+                    cartesia_emotion = [mapped]
+                    
+            voice_config = {
+                "mode": "id",
+                "id": request.voice_id,
+            }
+            
+            if cartesia_emotion:
+                voice_config["__experimental_controls"] = {
+                    "emotion": cartesia_emotion
+                }
+
             payload = {
                 "model_id": self.model_id,
                 "transcript": request.text,
-                "voice": {
-                    "mode": "id",
-                    "id": request.voice_id,
-                },
+                "voice": voice_config,
                 "output_format": {
                     "container": "wav",
                     "encoding": "pcm_f32le",

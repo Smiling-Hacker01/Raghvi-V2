@@ -1,7 +1,7 @@
 """Voice service — manage user voices and speech synthesis."""
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import and_, select
@@ -72,7 +72,7 @@ class VoiceService:
         )
 
         if not include_expired:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
             query = query.where((UserVoice.expires_at.is_(None)) | (UserVoice.expires_at > now))
 
         voices = await session.scalars(query)
@@ -136,7 +136,7 @@ class VoiceService:
         if not voice:
             raise ValueError("Voice not found")
 
-        voice.deleted_at = datetime.utcnow()
+        voice.deleted_at = datetime.now(UTC)
         voice.is_active = False
 
         await session.commit()
@@ -162,7 +162,7 @@ class VoiceService:
         )
 
         count = 0
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         for voice in voices.all():
             voice.expires_at = now

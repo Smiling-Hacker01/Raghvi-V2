@@ -30,7 +30,7 @@ class ElevenLabsProvider(VoiceProvider):
     def __init__(self, config: dict[str, Any]):
         super().__init__(config)
         self.api_key = config.get("api_key", "")
-        self.model_id = config.get("model_id", "eleven_monolingual_v1")
+        self.model_id = config.get("model_id", "eleven_multilingual_v2")
 
         if not self.api_key:
             logger.warning("ElevenLabs API key not configured")

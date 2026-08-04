@@ -1,7 +1,7 @@
 """S3 storage service for voice samples and audio files."""
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from io import BytesIO
 from typing import BinaryIO
 
@@ -54,7 +54,8 @@ class S3Service:
         """
         try:
             # Generate S3 key
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+
             s3_key = f"{self.voice_prefix}{user_id}/{voice_id}_{timestamp}.{file_extension}"
 
             # Convert bytes to file-like object if needed

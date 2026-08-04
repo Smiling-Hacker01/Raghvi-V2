@@ -197,7 +197,7 @@ class ChatService:
         # Call LLM with context
         try:
             client = get_ai_client()
-            response_text, tokens_used, provider_used = await client.send_message(
+            raw_response_text, tokens_used, provider_used = await client.send_message(
                 messages=messages,
                 system_prompt=system_prompt,
             )
@@ -206,9 +206,29 @@ class ChatService:
                 f"LLM response for user {user_id}: provider={provider_used}, tokens={tokens_used}"
             )
 
+            # Parse XML-like structure for emotion, voice, and chat
+            import re
+            
+            emotion = "neutral"
+            voice_text = raw_response_text
+            chat_text = raw_response_text
+            
+            emotion_match = re.search(r"<emotion>(.*?)</emotion>", raw_response_text, re.DOTALL | re.IGNORECASE)
+            voice_match = re.search(r"<voice_text>(.*?)</voice_text>", raw_response_text, re.DOTALL | re.IGNORECASE)
+            chat_match = re.search(r"<chat_text>(.*?)</chat_text>", raw_response_text, re.DOTALL | re.IGNORECASE)
+            
+            if emotion_match:
+                emotion = emotion_match.group(1).strip().lower()
+            if voice_match:
+                voice_text = voice_match.group(1).strip()
+            if chat_match:
+                chat_text = chat_match.group(1).strip()
+
         except Exception as e:
             logger.error(f"LLM error for user {user_id}: {e}")
-            response_text = get_error_response()
+            chat_text = get_error_response()
+            voice_text = chat_text
+            emotion = "sad"
             tokens_used = 0
 
         # Store user message
@@ -224,7 +244,7 @@ class ChatService:
         assistant_msg = Message(
             conversation_id=conversation.id,
             role="assistant",
-            content=response_text,
+            content=chat_text,
             tokens_used=tokens_used,
         )
         session.add(assistant_msg)
@@ -282,7 +302,9 @@ class ChatService:
 
         return {
             "user_message": user_message_content,
-            "assistant_message": response_text,
+            "assistant_message": chat_text,
+            "voice_text": voice_text,
+            "emotion": emotion,
             "tokens_used": tokens_used,
         }
 

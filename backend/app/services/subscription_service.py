@@ -1,7 +1,7 @@
 """Subscription service — business logic for plans and subscriptions."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -68,25 +68,25 @@ class SubscriptionService:
         if existing:
             # Upgrade existing subscription
             existing.plan_id = plan_id
-            existing.renewed_at = datetime.utcnow()
-            existing.expires_at = datetime.utcnow() + timedelta(days=30)
+            existing.renewed_at = datetime.now(UTC)
+            existing.expires_at = datetime.now(UTC) + timedelta(days=30)
             existing.stripe_subscription_id = (
                 stripe_subscription_id or existing.stripe_subscription_id
             )
             existing.stripe_customer_id = stripe_customer_id or existing.stripe_customer_id
-            existing.updated_at = datetime.utcnow()
+            existing.updated_at = datetime.now(UTC)
 
             await session.commit()
             logger.info(f"Subscription upgraded for user {user_id}: {plan_id}")
             return existing
 
         # Create new subscription
-        expires_at = datetime.utcnow() + timedelta(days=30)
+        expires_at = datetime.now(UTC) + timedelta(days=30)
 
         subscription = UserSubscription(
             user_id=user_id,
             plan_id=plan_id,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(UTC),
             expires_at=expires_at,
             stripe_subscription_id=stripe_subscription_id,
             stripe_customer_id=stripe_customer_id,
@@ -112,8 +112,8 @@ class SubscriptionService:
 
         # Extend by 30 days
         subscription.expires_at = subscription.expires_at + timedelta(days=30)
-        subscription.renewed_at = datetime.utcnow()
-        subscription.updated_at = datetime.utcnow()
+        subscription.renewed_at = datetime.now(UTC)
+        subscription.updated_at = datetime.now(UTC)
 
         await session.commit()
 
@@ -133,8 +133,8 @@ class SubscriptionService:
             raise ValueError("No active subscription to cancel")
 
         subscription.is_active = False
-        subscription.deleted_at = datetime.utcnow()
-        subscription.updated_at = datetime.utcnow()
+        subscription.deleted_at = datetime.now(UTC)
+        subscription.updated_at = datetime.now(UTC)
 
         # Expire all custom voices
         from app.services.voice.voice_service import VoiceService
@@ -152,7 +152,7 @@ class SubscriptionService:
         Call this from a scheduled job (daily).
         """
 
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         expired = await session.scalars(
             select(UserSubscription).where(

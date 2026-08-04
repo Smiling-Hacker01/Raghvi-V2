@@ -4,8 +4,6 @@ import pytest
 from sqlalchemy import select
 
 from app.models.memory import Memory
-from app.models.user import User
-from app.security.password import hash_password
 from app.services.memory.service import MemoryService
 
 pytestmark = pytest.mark.asyncio
@@ -13,23 +11,6 @@ pytestmark = pytest.mark.asyncio
 
 class TestMemoryService:
     """Tests for MemoryService."""
-
-    @pytest.fixture
-    async def user(self, test_db):
-        """Create a test user."""
-        async with test_db() as session:
-            user = User(
-                id="550e8400-e29b-41d4-a716-446655440000",
-                username="memorytest",
-                email="memorytest@example.com",
-                password_hash=hash_password("TestPassword123"),
-                name="Memory Test User",
-                phone="1234567890",
-            )
-            session.add(user)
-            await session.commit()
-            await session.refresh(user)
-            return user
 
     async def test_create_public_memory_auto_approved(self, test_db, user):
         """Test that public content is auto-approved at creation."""

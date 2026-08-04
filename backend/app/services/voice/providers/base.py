@@ -23,6 +23,7 @@ class VoiceSynthesisRequest:
     text: str
     voice_id: str
     language: str = "en"
+    emotion: str | None = None
     output_format: str = "wav"
 
 

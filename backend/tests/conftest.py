@@ -83,6 +83,173 @@ async def test_session(test_db_engine) -> AsyncGenerator[AsyncSession]:
 
 
 @pytest.fixture
+def test_db(test_db_engine):
+    """Create test database session factory (callable fixture)."""
+    from contextlib import asynccontextmanager
+    from sqlalchemy import select
+
+    @asynccontextmanager
+    async def _session_factory():
+        async_session = sessionmaker(
+            test_db_engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+        async with async_session() as session:
+            # Seed subscription plans only if they don't exist
+            existing = await session.scalar(select(SubscriptionPlan).limit(1))
+            if not existing:
+                plans = [
+                    SubscriptionPlan(
+                        id="free",
+                        name="Free",
+                        description="Free plan",
+                        price_usd=0.0,
+                        max_custom_voices=0,
+                        supported_languages="en",
+                    ),
+                    SubscriptionPlan(
+                        id="pro",
+                        name="Pro",
+                        description="Pro plan",
+                        price_usd=9.99,
+                        max_custom_voices=1,
+                        supported_languages="en,hi",
+                    ),
+                    SubscriptionPlan(
+                        id="premium",
+                        name="Premium",
+                        description="Premium plan",
+                        price_usd=19.99,
+                        max_custom_voices=3,
+                        supported_languages="en,hi",
+                    ),
+                ]
+
+                for plan in plans:
+                    session.add(plan)
+
+                await session.commit()
+            yield session
+
+    return _session_factory
+
+
+@pytest.fixture
+async def user(test_session):
+    """Create a test user."""
+    from app.security.password import hash_password
+
+    user = User(
+        id="550e8400-e29b-41d4-a716-446655440000",
+        username="testuser",
+        email="test@example.com",
+        password_hash=hash_password("TestPassword123"),
+        name="Test User",
+        phone="1234567890",
+    )
+    test_session.add(user)
+    await test_session.commit()
+    await test_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+async def test_user(user):
+    """Alias for user fixture (for backward compatibility)."""
+    return user
+
+
+@pytest.fixture
+async def client():
+    """Create test HTTP client."""
+    from collections.abc import AsyncGenerator
+    from httpx import ASGITransport, AsyncClient
+    from sqlalchemy import select
+
+    from app.db.session import get_db_session
+    from app.main import app
+
+    # Create test engine
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async def override_db_session() -> AsyncGenerator[AsyncSession]:
+        async with session_factory() as session:
+            # Seed subscription plans only if they don't exist
+            from app.models.subscription import SubscriptionPlan
+
+            existing = await session.scalar(select(SubscriptionPlan).limit(1))
+            if not existing:
+                plans = [
+                    SubscriptionPlan(
+                        id="free",
+                        name="Free",
+                        description="Free plan",
+                        price_usd=0.0,
+                        max_custom_voices=0,
+                        supported_languages="en",
+                    ),
+                    SubscriptionPlan(
+                        id="pro",
+                        name="Pro",
+                        description="Pro plan",
+                        price_usd=9.99,
+                        max_custom_voices=1,
+                        supported_languages="en,hi",
+                    ),
+                    SubscriptionPlan(
+                        id="premium",
+                        name="Premium",
+                        description="Premium plan",
+                        price_usd=19.99,
+                        max_custom_voices=3,
+                        supported_languages="en,hi",
+                    ),
+                ]
+
+                for plan in plans:
+                    session.add(plan)
+
+                await session.commit()
+            yield session
+
+    app.dependency_overrides[get_db_session] = override_db_session
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as test_client:
+        yield test_client
+
+    app.dependency_overrides.clear()
+    await engine.dispose()
+
+
+@pytest.fixture
+async def auth_headers(client):
+    """Create authenticated user and return auth headers."""
+    from app.security.password import hash_password
+
+    # Register user
+    signup_response = await client.post(
+        "/auth/signup",
+        json={
+            "email": "testuser@example.com",
+            "username": "testuser",
+            "password": "TestPassword123",
+            "name": "Test User",
+            "phone": "1234567890",
+        },
+    )
+
+    assert signup_response.status_code == 201
+    tokens = signup_response.json()
+
+    return {"Authorization": f"Bearer {tokens['access_token']}"}
+
+
+@pytest.fixture
 def mock_current_user():
     """Mock authenticated user."""
     return User(
@@ -173,15 +340,17 @@ def create_test_user(user_id: str = "test_user") -> dict:
 
 def create_test_subscription(user_id: str, plan_id: str = "pro") -> dict:
     """Create test subscription data."""
-    from datetime import datetime, timedelta
+    from datetime import UTC, datetime, timedelta
 
+    now = datetime.now(UTC)
     return {
         "user_id": user_id,
         "plan_id": plan_id,
-        "started_at": datetime.utcnow(),
-        "expires_at": datetime.utcnow() + timedelta(days=30),
+        "started_at": now,
+        "expires_at": now + timedelta(days=30),
         "is_active": True,
     }
+
 
 
 def create_test_voice(user_id: str, voice_name: str = "Test Voice") -> dict:
