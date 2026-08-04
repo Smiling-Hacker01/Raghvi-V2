@@ -3,8 +3,6 @@
 import pytest
 
 from app.models.message import Message
-from app.models.user import User
-from app.security.password import hash_password
 from app.services.chat import ChatService
 
 pytestmark = pytest.mark.asyncio
@@ -12,22 +10,6 @@ pytestmark = pytest.mark.asyncio
 
 class TestChatService:
     """Tests for ChatService methods."""
-
-    @pytest.fixture
-    async def user(self, test_db):
-        """Create a test user."""
-        async with test_db() as session:
-            user = User(
-                username="servicetest",
-                email="servicetest@example.com",
-                password_hash=hash_password("TestPassword123"),
-                name="Service Test",
-                phone="9999999999",
-            )
-            session.add(user)
-            await session.commit()
-            await session.refresh(user)
-            return user
 
     async def test_get_or_create_conversation_new(self, test_db, user):
         """Test creating a new conversation."""

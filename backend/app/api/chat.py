@@ -82,6 +82,114 @@ async def send_message(
         )
 
 
+@router.post("/send-with-voice")
+async def send_message_with_voice(
+    request: ChatSendRequest,
+    current_user: CurrentUser,
+    session: DbSession,
+    language: str = "en",
+) -> dict:
+    """
+    Send message to Raghvi and get response with voice audio.
+
+    This endpoint:
+    1. Gets Raghvi's text response (same as /send)
+    2. Synthesizes the response to audio
+    3. Returns both text and audio (base64)
+
+    Perfect for mobile apps and voice-enabled interfaces!
+    """
+    import base64
+
+    # Extract user_id before try block
+    user_id = str(current_user.id)
+
+    if not request.content.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Message cannot be empty",
+        )
+
+    try:
+        # Get Raghvi's text response
+        result = await ChatService.send_message(
+            user_id=user_id,
+            user_message_content=request.content,
+            session=session,
+        )
+
+        # Synthesize the response to audio
+        from app.services.voice.providers.base import VoiceSynthesisRequest
+        from app.services.voice.voice_adapter_builder import get_voice_adapter
+        from app.services.voice.voice_service import VoiceService
+
+        # Get voice adapter with multi-provider fallback
+        adapter = get_voice_adapter()
+
+        # Get user's default voice or use system default
+        voices = await VoiceService.get_user_voices(current_user.id, session)
+        default_voices = [v for v in voices if v.is_default]
+
+        # Use Deepgram-compatible default (works if Deepgram is configured)
+        voice_id = default_voices[0].voice_id if default_voices else "aura-asteria-en"
+
+        # Create synthesis request using the phonetic voice_text and emotion
+        synthesis_request = VoiceSynthesisRequest(
+            text=result.get("voice_text", result["assistant_message"]),
+            voice_id=voice_id,
+            language=language,
+            emotion=result.get("emotion"),
+        )
+
+        logger.info(f"Synthesizing Raghvi's response for user {user_id}")
+
+        # Synthesize speech with automatic fallback
+        audio_response = await adapter.synthesize_speech(synthesis_request)
+
+        # Encode audio to base64
+        audio_base64 = base64.b64encode(audio_response.audio_data).decode("utf-8")
+
+        return {
+            "user_message": result["user_message"],
+            "assistant_message": result["assistant_message"],
+            "tokens_used": result["tokens_used"],
+            "audio": {
+                "data_base64": audio_base64,
+                "format": audio_response.audio_format,
+                "sample_rate": 44100,
+                "provider": "voice_synthesis",
+                "duration_estimate": len(result["assistant_message"]) / 10,
+            },
+        }
+
+    except ValueError as e:
+        logger.error(f"Chat validation error for user {user_id}: {e}")
+        from app.services.ai.prompt import get_error_response
+
+        error_message = get_error_response()
+
+        return {
+            "user_message": request.content,
+            "assistant_message": error_message,
+            "tokens_used": 0,
+            "audio": None,
+        }
+
+    except Exception as e:
+        logger.error(f"Chat with voice error for user {user_id}: {e}", exc_info=True)
+        await session.rollback()
+        from app.services.ai.prompt import get_error_response
+
+        error_message = get_error_response()
+
+        return {
+            "user_message": request.content,
+            "assistant_message": error_message,
+            "tokens_used": 0,
+            "audio": None,
+        }
+
+
 @router.get("/", response_model=ConversationResponse)
 async def get_conversation(
     current_user: CurrentUser,

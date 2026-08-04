@@ -43,6 +43,48 @@ class Settings(BaseSettings):
     github_model: str = "gpt-4o"
     github_timeout_seconds: int = 15
 
+    # Stripe configuration
+    stripe_api_key: str = ""
+    stripe_publishable_key: str = ""
+    stripe_webhook_secret: str = ""
+
+    # Voice provider configuration
+    elevenlabs_api_key: str = ""
+    elevenlabs_model_id: str = "eleven_monolingual_v1"
+
+    cartesia_api_key: str = ""
+    cartesia_model_id: str = "sonic-english"
+
+    deepgram_api_key: str = ""
+    deepgram_model: str = "aura-asteria-en"
+
+    nvidia_api_key: str = ""
+    nvidia_model: str = "fastpitch"
+
+    # Voice provider priority (comma-separated, will try in order)
+    voice_provider_priority: str = "elevenlabs,cartesia,deepgram,coqui_xtts"
+
+    # Voice synthesis settings
+    voice_sample_rate: int = 44100
+    voice_bit_depth: int = 16
+    voice_channels: int = 1
+    voice_format: str = "wav"
+
+    # Voice limits
+    voice_clone_min_duration: int = 45
+    voice_clone_max_duration: int = 120
+    voice_clone_max_file_size: int = 20 * 1024 * 1024
+
+    # S3/AWS configuration (for voice samples)
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    s3_bucket: str = ""
+    s3_region: str = "us-east-1"
+    s3_voice_prefix: str = "voices/"
+
+    # Redis cache
+    redis_voice_cache_ttl: int = 30 * 60  # 30 minutes
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

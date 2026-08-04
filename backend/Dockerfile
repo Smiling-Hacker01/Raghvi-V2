@@ -24,6 +24,9 @@ RUN uv sync --locked --no-dev
 # ---- Runtime stage ----
 FROM python:3.13-slim AS runtime
 
+# Copy uv from builder (needed for running scripts)
+COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
+
 # Create an unprivileged user to run the app (never run as root)
 RUN groupadd --system app && useradd --system --gid app --no-create-home app
 
@@ -34,6 +37,9 @@ COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/app /app/app
 COPY --from=builder /app/alembic /app/alembic
 COPY --from=builder /app/alembic.ini /app/alembic.ini
+
+# Copy scripts directory for migrations and seeding
+COPY scripts ./scripts
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \

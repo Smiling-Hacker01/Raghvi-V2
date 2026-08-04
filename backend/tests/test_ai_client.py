@@ -39,10 +39,16 @@ class TestAIClient:
 
 
 def test_get_ai_client_singleton():
-    with patch("app.services.ai.client.AIClient") as mock_cls:
-        mock_cls.return_value = "fake_client"
-        client1 = get_ai_client()
-        client2 = get_ai_client()
+    import app.services.ai.client as client_module
 
-        assert client1 == client2
-        mock_cls.assert_called_once()
+    client_module._ai_client_instance = None
+    try:
+        with patch("app.services.ai.client.AIClient") as mock_cls:
+            mock_cls.return_value = "fake_client"
+            client1 = get_ai_client()
+            client2 = get_ai_client()
+
+            assert client1 == client2
+            mock_cls.assert_called_once()
+    finally:
+        client_module._ai_client_instance = None

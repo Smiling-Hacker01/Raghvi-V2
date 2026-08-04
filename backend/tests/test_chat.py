@@ -63,10 +63,8 @@ class TestChatSend:
 
         assert response.status_code == 422
 
-    async def test_send_message_stores_in_db(
-        self, client: AsyncClient, auth_headers: dict, test_db
-    ):
-        """Test that message is stored in database."""
+    async def test_send_message_stores_in_db(self, client: AsyncClient, auth_headers: dict):
+        """Test that message is stored and can be retrieved via history."""
         # Send message
         response = await client.post(
             "/chat/send",
@@ -76,26 +74,27 @@ class TestChatSend:
 
         assert response.status_code == 200
 
-        # Verify in database
-        from sqlalchemy import select
+        # Verify by getting history (which checks DB)
+        history_response = await client.get(
+            "/chat/history",
+            headers=auth_headers,
+        )
 
-        from app.models.message import Message
+        assert history_response.status_code == 200
+        history_data = history_response.json()
 
-        async with test_db() as session:
-            messages = await session.scalars(select(Message))
-            message_list = messages.all()
+        # Should have at least 2 messages (user + assistant)
+        assert len(history_data["messages"]) >= 2
 
-            # Should have at least 2 messages (user + assistant)
-            assert len(message_list) >= 2
+        # Verify user message
+        user_msgs = [m for m in history_data["messages"] if m["role"] == "user"]
+        assert len(user_msgs) > 0
+        assert user_msgs[-1]["content"] == "Test message"
 
-            # Verify user message
-            user_msg = [m for m in message_list if m.role == "user"][0]
-            assert user_msg.content == "Test message"
-
-            # Verify assistant message exists
-            assistant_msgs = [m for m in message_list if m.role == "assistant"]
-            assert len(assistant_msgs) > 0
-            assert len(assistant_msgs[0].content) > 0
+        # Verify assistant message exists
+        assistant_msgs = [m for m in history_data["messages"] if m["role"] == "assistant"]
+        assert len(assistant_msgs) > 0
+        assert len(assistant_msgs[-1]["content"]) > 0
 
 
 class TestChatHistory:

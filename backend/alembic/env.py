@@ -10,9 +10,29 @@ from app.core.config import get_settings
 from app.db.base import Base
 
 # Import all models via the central registry so Alembic autogenerate detects every table
-from app.models import Conversation, Memory, Message, RefreshToken, User  # noqa: F401
+from app.models import (
+    Conversation,
+    Memory,
+    Message,
+    RefreshToken,
+    SubscriptionPlan,
+    SystemVoice,
+    User,
+    UserSubscription,
+    UserVoice,
+)  # noqa: F401
 
-_models = (Conversation, Memory, Message, RefreshToken, User)
+_models = (
+    Conversation,
+    Memory,
+    Message,
+    RefreshToken,
+    SubscriptionPlan,
+    SystemVoice,
+    User,
+    UserSubscription,
+    UserVoice,
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
