@@ -93,30 +93,56 @@ class ElevenLabsProvider(VoiceProvider):
             logger.error(f"Voice cloning failed: {e}")
             raise VoiceProviderError(f"Failed to clone voice: {e}") from e
 
+    # Emotion → voice settings mapping.
+    # stability:       lower = more expressive/varied, higher = consistent/flat
+    # style:           0–1 exaggeration of voice style (ElevenLabs v2+ only)
+    # similarity_boost: how closely to match the cloned voice timbre
+    _EMOTION_VOICE_SETTINGS: dict[str, dict] = {
+        "happy": {"stability": 0.35, "similarity_boost": 0.75, "style": 0.42},
+        "excited": {"stability": 0.28, "similarity_boost": 0.75, "style": 0.55},
+        "curious": {"stability": 0.38, "similarity_boost": 0.75, "style": 0.35},
+        "playful": {"stability": 0.30, "similarity_boost": 0.75, "style": 0.50},
+        "empathetic": {"stability": 0.50, "similarity_boost": 0.80, "style": 0.22},
+        "serious": {"stability": 0.58, "similarity_boost": 0.80, "style": 0.15},
+        "sad": {"stability": 0.52, "similarity_boost": 0.80, "style": 0.18},
+        "warm": {"stability": 0.42, "similarity_boost": 0.78, "style": 0.30},
+        "neutral": {"stability": 0.40, "similarity_boost": 0.75, "style": 0.28},
+    }
+    _DEFAULT_VOICE_SETTINGS = {"stability": 0.40, "similarity_boost": 0.75, "style": 0.30}
+
     async def synthesize_speech(self, request: VoiceSynthesisRequest) -> VoiceSynthesisResponse:
-        """Synthesize speech using ElevenLabs API."""
+        """Synthesize speech using ElevenLabs API with emotion-driven voice settings."""
 
         if not self.api_key:
             raise VoiceProviderError("ElevenLabs API key not configured")
 
         try:
-            # Detect if text has Devanagari (Hindi) script
+            import re
+
+            # ── Language detection ────────────────────────────────────────────
+            # Detect Devanagari (Hindi) script — triggers multilingual phonemes
             has_devanagari = any("\u0900" <= ch <= "\u097f" for ch in request.text)
             language_code = "hi" if has_devanagari else "en"
+
+            # ── Emotion-driven voice settings ─────────────────────────────────
+            emotion_key = (request.emotion or "neutral").lower().strip()
+            voice_settings = self._EMOTION_VOICE_SETTINGS.get(
+                emotion_key, self._DEFAULT_VOICE_SETTINGS
+            )
 
             payload = {
                 "text": request.text,
                 "model_id": self.model_id,
                 "language_code": language_code,
                 "voice_settings": {
-                    "stability": 0.5,
-                    "similarity_boost": 0.75,
+                    **voice_settings,
+                    "use_speaker_boost": True,  # adds warmth and vocal presence
                 },
             }
 
-            # Handle voice_id format: if a UUID or Deepgram name was passed, use default voice
-            import re
-
+            # ── Voice ID validation ───────────────────────────────────────────
+            # If a UUID or Deepgram-style voice_id was passed, fall back to
+            # the free-tier ElevenLabs demo voice (Sarah)
             is_uuid = bool(
                 re.match(
                     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
@@ -127,6 +153,12 @@ class ElevenLabsProvider(VoiceProvider):
                 "EXAVITQu4vr4xnSDxMaL"
                 if (is_uuid or request.voice_id.startswith("aura-"))
                 else request.voice_id
+            )
+
+            logger.info(
+                f"ElevenLabs TTS: voice={voice_id}, emotion={emotion_key}, "
+                f"lang={language_code}, model={self.model_id}, "
+                f"stability={voice_settings['stability']}"
             )
 
             async with (
@@ -148,7 +180,7 @@ class ElevenLabsProvider(VoiceProvider):
 
                 audio_data = await response.read()
 
-                logger.info(f"Speech synthesized: {len(audio_data)} bytes")
+                logger.info(f"ElevenLabs speech synthesized: {len(audio_data)} bytes")
 
                 return VoiceSynthesisResponse(
                     audio_data=audio_data,
@@ -156,7 +188,7 @@ class ElevenLabsProvider(VoiceProvider):
                 )
 
         except Exception as e:
-            logger.error(f"Speech synthesis failed: {e}")
+            logger.error(f"ElevenLabs speech synthesis failed: {e}")
             raise VoiceProviderError(f"Failed to synthesize speech: {e}") from e
 
     async def list_voices(self, language: str | None = None) -> list[dict[str, Any]]:
