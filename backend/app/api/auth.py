@@ -141,14 +141,14 @@ async def login(request: LoginRequest, session: DbSession) -> AuthTokens:
 @router.post("/refresh", response_model=AuthTokens)
 async def refresh(request: RefreshRequest, session: DbSession) -> AuthTokens:
     token_record = await _get_valid_refresh_token(session, request.refresh_token)
-    token_record.revoked_at = datetime.now(UTC)
+    token_record.revoked_at = datetime.now(UTC).replace(tzinfo=None)
     return await _issue_tokens(session, token_record.user_id)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(request: LogoutRequest, session: DbSession) -> None:
     token_record = await _get_valid_refresh_token(session, request.refresh_token)
-    token_record.revoked_at = datetime.now(UTC)
+    token_record.revoked_at = datetime.now(UTC).replace(tzinfo=None)
     await session.commit()
 
 
@@ -160,7 +160,7 @@ async def revoke_all(
     await session.execute(
         update(RefreshToken)
         .where(RefreshToken.user_id == current_user.id, RefreshToken.revoked_at.is_(None))
-        .values(revoked_at=datetime.now(UTC))
+        .values(revoked_at=datetime.now(UTC).replace(tzinfo=None))
     )
     await session.commit()
 

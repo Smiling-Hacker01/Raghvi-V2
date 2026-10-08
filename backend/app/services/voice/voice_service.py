@@ -72,7 +72,7 @@ class VoiceService:
         )
 
         if not include_expired:
-            now = datetime.now(UTC)
+            now = datetime.now(UTC).replace(tzinfo=None)
             query = query.where((UserVoice.expires_at.is_(None)) | (UserVoice.expires_at > now))
 
         voices = await session.scalars(query)
@@ -136,7 +136,7 @@ class VoiceService:
         if not voice:
             raise ValueError("Voice not found")
 
-        voice.deleted_at = datetime.now(UTC)
+        voice.deleted_at = datetime.now(UTC).replace(tzinfo=None)
         voice.is_active = False
 
         await session.commit()
@@ -162,7 +162,7 @@ class VoiceService:
         )
 
         count = 0
-        now = datetime.now(UTC)
+        now = datetime.now(UTC).replace(tzinfo=None)
 
         for voice in voices.all():
             voice.expires_at = now

@@ -9,6 +9,7 @@ from app.models.conversation import Conversation
 from app.models.creator import CreatorProfile
 from app.models.memory import Memory
 from app.models.message import Message
+from app.models.payment import PaymentTransaction, WebhookEvent
 from app.models.refresh_token import RefreshToken
 from app.models.reminder import Reminder  # noqa: F401
 from app.models.subscription import SubscriptionPlan, UserSubscription
@@ -29,4 +30,6 @@ __all__ = [
     "Reminder",
     "UserVoice",
     "SystemVoice",
+    "PaymentTransaction",
+    "WebhookEvent",
 ]

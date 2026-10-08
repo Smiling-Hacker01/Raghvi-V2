@@ -130,8 +130,8 @@ async def send_message_with_voice(
         voices = await VoiceService.get_user_voices(current_user.id, session)
         default_voices = [v for v in voices if v.is_default]
 
-        # Use Deepgram-compatible default (works if Deepgram is configured)
-        voice_id = default_voices[0].voice_id if default_voices else "aura-asteria-en"
+        # Default fallback voice for multilingual providers
+        voice_id = default_voices[0].voice_id if default_voices else "EXAVITQu4vr4xnSDxMaL"
 
         # Create synthesis request using the phonetic voice_text and emotion
         synthesis_request = VoiceSynthesisRequest(
@@ -168,11 +168,38 @@ async def send_message_with_voice(
 
         error_message = get_error_response()
 
+        # Try to synthesize the error message
+        audio_payload = None
+        try:
+            from app.services.voice.providers.base import VoiceSynthesisRequest
+            from app.services.voice.voice_adapter_builder import get_voice_adapter
+
+            adapter = get_voice_adapter()
+            voice_id = "EXAVITQu4vr4xnSDxMaL"
+
+            synthesis_request = VoiceSynthesisRequest(
+                text=error_message,
+                voice_id=voice_id,
+                language=language,
+                emotion="empathetic",
+            )
+            audio_response = await adapter.synthesize_speech(synthesis_request)
+            audio_base64 = base64.b64encode(audio_response.audio_data).decode("utf-8")
+            audio_payload = {
+                "data_base64": audio_base64,
+                "format": audio_response.audio_format,
+                "sample_rate": 44100,
+                "provider": "voice_synthesis",
+                "duration_estimate": len(error_message) / 10,
+            }
+        except Exception as synthesis_err:
+            logger.error(f"Failed to synthesize friendly error voice response: {synthesis_err}")
+
         return {
             "user_message": request.content,
             "assistant_message": error_message,
             "tokens_used": 0,
-            "audio": None,
+            "audio": audio_payload,
         }
 
     except Exception as e:
@@ -182,11 +209,38 @@ async def send_message_with_voice(
 
         error_message = get_error_response()
 
+        # Try to synthesize the error message
+        audio_payload = None
+        try:
+            from app.services.voice.providers.base import VoiceSynthesisRequest
+            from app.services.voice.voice_adapter_builder import get_voice_adapter
+
+            adapter = get_voice_adapter()
+            voice_id = "EXAVITQu4vr4xnSDxMaL"
+
+            synthesis_request = VoiceSynthesisRequest(
+                text=error_message,
+                voice_id=voice_id,
+                language=language,
+                emotion="empathetic",
+            )
+            audio_response = await adapter.synthesize_speech(synthesis_request)
+            audio_base64 = base64.b64encode(audio_response.audio_data).decode("utf-8")
+            audio_payload = {
+                "data_base64": audio_base64,
+                "format": audio_response.audio_format,
+                "sample_rate": 44100,
+                "provider": "voice_synthesis",
+                "duration_estimate": len(error_message) / 10,
+            }
+        except Exception as synthesis_err:
+            logger.error(f"Failed to synthesize friendly error voice response: {synthesis_err}")
+
         return {
             "user_message": request.content,
             "assistant_message": error_message,
             "tokens_used": 0,
-            "audio": None,
+            "audio": audio_payload,
         }
 
 

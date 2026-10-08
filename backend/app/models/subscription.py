@@ -61,9 +61,14 @@ class UserSubscription(Base):
     # Status
     is_active = Column(Boolean, nullable=False, default=True)
 
-    # Billing
-    stripe_subscription_id = Column(String(100), nullable=True)  # Stripe subscription ID
-    stripe_customer_id = Column(String(100), nullable=True)  # Stripe customer ID
+    # Billing provider identifiers. The Stripe columns remain for compatibility
+    # with existing records and API clients while all new code uses these fields.
+    provider_name = Column(String(50), nullable=True)
+    provider_subscription_id = Column(String(100), nullable=True)
+    provider_customer_id = Column(String(100), nullable=True)
+    last_provider_payment_id = Column(String(100), nullable=True)
+    stripe_subscription_id = Column(String(100), nullable=True)
+    stripe_customer_id = Column(String(100), nullable=True)
     auto_renew = Column(Boolean, nullable=False, default=True)
 
     # Metadata
@@ -74,6 +79,7 @@ class UserSubscription(Base):
     __table_args__ = (
         Index("ix_user_sub_active", "user_id", "is_active"),
         Index("ix_user_sub_expires", "user_id", "expires_at"),
+        Index("ix_user_sub_provider_subscription", "provider_name", "provider_subscription_id"),
     )
 
     def __repr__(self) -> str:

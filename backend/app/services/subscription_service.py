@@ -52,9 +52,11 @@ class SubscriptionService:
     async def create_subscription(
         user_id: str,
         plan_id: str,
-        stripe_subscription_id: str | None = None,
-        stripe_customer_id: str | None = None,
+        provider_subscription_id: str | None = None,
+        provider_customer_id: str | None = None,
         session: AsyncSession = None,
+        provider_name: str | None = None,
+        provider_period_end: datetime | None = None,
     ) -> UserSubscription:
         """Create or upgrade user subscription."""
 
@@ -68,28 +70,34 @@ class SubscriptionService:
         if existing:
             # Upgrade existing subscription
             existing.plan_id = plan_id
-            existing.renewed_at = datetime.now(UTC)
-            existing.expires_at = datetime.now(UTC) + timedelta(days=30)
-            existing.stripe_subscription_id = (
-                stripe_subscription_id or existing.stripe_subscription_id
+            existing.renewed_at = datetime.now(UTC).replace(tzinfo=None)
+            existing.expires_at = provider_period_end or (
+                datetime.now(UTC) + timedelta(days=30)
+            ).replace(tzinfo=None)
+            existing.provider_name = provider_name or existing.provider_name
+            existing.provider_subscription_id = (
+                provider_subscription_id or existing.provider_subscription_id
             )
-            existing.stripe_customer_id = stripe_customer_id or existing.stripe_customer_id
-            existing.updated_at = datetime.now(UTC)
+            existing.provider_customer_id = provider_customer_id or existing.provider_customer_id
+            existing.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
             await session.commit()
             logger.info(f"Subscription upgraded for user {user_id}: {plan_id}")
             return existing
 
         # Create new subscription
-        expires_at = datetime.now(UTC) + timedelta(days=30)
+        expires_at = provider_period_end or (datetime.now(UTC) + timedelta(days=30)).replace(
+            tzinfo=None
+        )
 
         subscription = UserSubscription(
             user_id=user_id,
             plan_id=plan_id,
-            started_at=datetime.now(UTC),
+            started_at=datetime.now(UTC).replace(tzinfo=None),
             expires_at=expires_at,
-            stripe_subscription_id=stripe_subscription_id,
-            stripe_customer_id=stripe_customer_id,
+            provider_name=provider_name,
+            provider_subscription_id=provider_subscription_id,
+            provider_customer_id=provider_customer_id,
         )
 
         session.add(subscription)
@@ -103,6 +111,8 @@ class SubscriptionService:
     async def renew_subscription(
         user_id: str,
         session: AsyncSession,
+        provider_payment_id: str | None = None,
+        provider_period_end: datetime | None = None,
     ) -> UserSubscription:
         """Renew user's subscription."""
 
@@ -110,10 +120,19 @@ class SubscriptionService:
         if not subscription:
             raise ValueError("No active subscription to renew")
 
+        # Payment webhooks are retried. Avoid extending access twice for the
+        # same provider invoice/payment identifier.
+        if provider_payment_id and subscription.last_provider_payment_id == provider_payment_id:
+            return subscription
+
         # Extend by 30 days
-        subscription.expires_at = subscription.expires_at + timedelta(days=30)
-        subscription.renewed_at = datetime.now(UTC)
-        subscription.updated_at = datetime.now(UTC)
+        subscription.expires_at = provider_period_end or (
+            subscription.expires_at + timedelta(days=30)
+        )
+        subscription.renewed_at = datetime.now(UTC).replace(tzinfo=None)
+        if provider_payment_id:
+            subscription.last_provider_payment_id = provider_payment_id
+        subscription.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
         await session.commit()
 
@@ -133,8 +152,8 @@ class SubscriptionService:
             raise ValueError("No active subscription to cancel")
 
         subscription.is_active = False
-        subscription.deleted_at = datetime.now(UTC)
-        subscription.updated_at = datetime.now(UTC)
+        subscription.deleted_at = datetime.now(UTC).replace(tzinfo=None)
+        subscription.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
         # Expire all custom voices
         from app.services.voice.voice_service import VoiceService
@@ -152,7 +171,7 @@ class SubscriptionService:
         Call this from a scheduled job (daily).
         """
 
-        now = datetime.now(UTC)
+        now = datetime.now(UTC).replace(tzinfo=None)
 
         expired = await session.scalars(
             select(UserSubscription).where(

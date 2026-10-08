@@ -31,14 +31,14 @@ class UserSubscriptionResponse(BaseModel):
     is_expired: bool
     days_remaining: int
     auto_renew: bool
-    stripe_subscription_id: str | None
+    provider_name: str | None = None
+    provider_subscription_id: str | None = None
 
 
 class CreateSubscriptionRequest(BaseModel):
     """Request to upgrade subscription."""
 
     plan_id: str = Field(..., description="Plan ID: 'pro', 'premium', 'platinum'")
-    stripe_payment_token: str | None = Field(None, description="Stripe token for payment")
 
 
 class UpgradeSubscriptionRequest(BaseModel):
@@ -53,6 +53,24 @@ class CancelSubscriptionRequest(BaseModel):
 
     reason: str | None = Field(None, description="Cancellation reason")
     feedback: str | None = Field(None, description="User feedback")
+
+
+class CheckoutSessionRequest(BaseModel):
+    """Request to create a checkout session."""
+
+    plan_id: str = Field(..., description="Plan ID: 'pro', 'premium', 'platinum'")
+    success_url: str = Field(..., description="URL to redirect after successful payment")
+    cancel_url: str = Field(..., description="URL to redirect if payment is cancelled")
+    metadata: dict[str, str] | None = Field(None, description="Additional metadata")
+
+
+class CheckoutSessionResponse(BaseModel):
+    """Provider-neutral checkout session response."""
+
+    provider_name: str
+    session_id: str
+    checkout_url: str
+    expires_at: int | None = None
 
 
 class SubscriptionListResponse(BaseModel):

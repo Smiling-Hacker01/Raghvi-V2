@@ -44,6 +44,14 @@ class DeepgramProvider(VoiceProvider):
         if not self.api_key:
             raise VoiceProviderError("Deepgram API key not configured")
 
+        # Deepgram Aura voices are English-only — reject Devanagari/Hindi text
+        # so the fallback adapter can route to a multilingual provider instead.
+        if any("\u0900" <= ch <= "\u097f" for ch in request.text):
+            raise VoiceProviderError(
+                "Deepgram Aura does not support Devanagari/Hindi script. "
+                "Routing to multilingual provider."
+            )
+
         try:
             # Use voice_id as the model/voice name
             model = request.voice_id if request.voice_id.startswith("aura-") else self.model

@@ -30,7 +30,10 @@ class CartesiaProvider(VoiceProvider):
     def __init__(self, config: dict[str, Any]):
         super().__init__(config)
         self.api_key = config.get("api_key", "")
-        self.model_id = config.get("model_id", "sonic-multilingual")
+        model_id = config.get("model_id", "sonic")
+        if model_id in ["sonic-multilingual", "sonic-english"]:
+            model_id = "sonic"
+        self.model_id = model_id
 
         if not self.api_key:
             logger.warning("Cartesia API key not configured")
@@ -85,46 +88,79 @@ class CartesiaProvider(VoiceProvider):
             logger.error(f"Cartesia voice cloning failed: {e}")
             raise VoiceProviderError(f"Failed to clone voice: {e}") from e
 
+    # ─── Emotion → Cartesia experimental_controls mapping ─────────────────────
+    # Each entry is a list of emotion strings Cartesia's __experimental_controls
+    # accepts. Composite tags (e.g. "positivity:high") give more intensity.
+    _EMOTION_MAP: dict[str, list[str]] = {
+        "happy": ["positivity:high"],
+        "excited": ["positivity:high", "surprise:high"],
+        "joyful": ["positivity:high"],
+        "curious": ["curiosity:high"],
+        "playful": ["positivity:moderate", "curiosity:moderate"],
+        "warm": ["positivity:moderate"],
+        "empathetic": ["sadness:low"],  # slight softness, not full sadness
+        "sad": ["sadness:high"],
+        "depressed": ["sadness:high"],
+        "angry": ["anger:high"],
+        "frustrated": ["anger:moderate"],
+        "serious": [],  # no emotion tag = flat/neutral
+        "neutral": [],
+    }
+
+    # Emotion → speech rate (1.0 = normal)
+    _EMOTION_SPEED: dict[str, float] = {
+        "happy": 1.05,
+        "excited": 1.12,
+        "playful": 1.08,
+        "curious": 1.00,
+        "warm": 0.97,
+        "empathetic": 0.90,
+        "sad": 0.88,
+        "depressed": 0.85,
+        "serious": 0.95,
+        "frustrated": 1.03,
+        "angry": 1.05,
+        "neutral": 1.00,
+    }
+
     async def synthesize_speech(self, request: VoiceSynthesisRequest) -> VoiceSynthesisResponse:
-        """Synthesize speech using Cartesia."""
+        """Synthesize speech using Cartesia with emotion-driven settings."""
 
         if not self.api_key:
             raise VoiceProviderError("Cartesia API key not configured")
 
         try:
-            # Map LLM emotion to Cartesia's supported emotions
-            cartesia_emotion = None
-            if request.emotion:
-                emotion_map = {
-                    "happy": "positivity",
-                    "excited": "positivity",
-                    "joyful": "positivity",
-                    "sad": "sadness",
-                    "sadness": "sadness",
-                    "depressed": "sadness",
-                    "angry": "anger",
-                    "anger": "anger",
-                    "frustrated": "anger",
-                    "surprise": "surprise",
-                    "curious": "surprise",
-                    "shocked": "surprise",
-                }
-                # Find best match or default to None
-                mapped = emotion_map.get(request.emotion.lower())
-                if mapped:
-                    cartesia_emotion = [mapped]
+            import re
 
-            voice_config = {
-                "mode": "id",
-                "id": request.voice_id,
-            }
+            emotion_key = (request.emotion or "neutral").lower().strip()
 
-            if cartesia_emotion:
-                voice_config["__experimental_controls"] = {"emotion": cartesia_emotion}
+            # ── Voice ID validation ───────────────────────────────────────────
+            is_uuid = bool(
+                re.match(
+                    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                    request.voice_id,
+                )
+            )
+            # Default Cartesia voice ID (Helpful Woman — Sonic)
+            voice_id = request.voice_id if is_uuid else "a0e99841-438c-4a64-b679-ae501e7d6091"
+
+            # ── Emotion → Cartesia controls ───────────────────────────────────
+            cartesia_emotions = self._EMOTION_MAP.get(emotion_key, [])
+            voice_config: dict = {"mode": "id", "id": voice_id}
+            if cartesia_emotions:
+                voice_config["__experimental_controls"] = {"emotion": cartesia_emotions}
+
+            # ── Language detection ────────────────────────────────────────────
+            has_devanagari = any("\u0900" <= ch <= "\u097f" for ch in request.text)
+            language = "hi" if has_devanagari else (request.language or "en")
+
+            # ── Speed variation by emotion ────────────────────────────────────
+            speed = self._EMOTION_SPEED.get(emotion_key, 1.0)
 
             payload = {
                 "model_id": self.model_id,
                 "transcript": request.text,
+                "language": language,
                 "voice": voice_config,
                 "output_format": {
                     "container": "wav",
@@ -132,6 +168,15 @@ class CartesiaProvider(VoiceProvider):
                     "sample_rate": 44100,
                 },
             }
+            # Only add speed if non-default to keep payload minimal
+            if speed != 1.0:
+                payload["speed"] = speed
+
+            logger.info(
+                f"Cartesia TTS: voice={voice_id}, emotion={emotion_key}, "
+                f"lang={language}, speed={speed}, "
+                f"cartesia_emotions={cartesia_emotions}"
+            )
 
             async with (
                 aiohttp.ClientSession() as session,
@@ -153,7 +198,7 @@ class CartesiaProvider(VoiceProvider):
 
                 audio_data = await response.read()
 
-                logger.info(f"Speech synthesized with Cartesia: {len(audio_data)} bytes")
+                logger.info(f"Cartesia speech synthesized: {len(audio_data)} bytes")
 
                 return VoiceSynthesisResponse(
                     audio_data=audio_data,

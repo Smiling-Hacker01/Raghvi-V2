@@ -1,5 +1,7 @@
 from functools import lru_cache
+from typing import Any
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -48,12 +50,16 @@ class Settings(BaseSettings):
     stripe_publishable_key: str = ""
     stripe_webhook_secret: str = ""
 
+    # Payment adapter configuration
+    payment_provider: str = "stripe"
+    payment_provider_config: dict[str, Any] = Field(default_factory=dict)
+
     # Voice provider configuration
     elevenlabs_api_key: str = ""
-    elevenlabs_model_id: str = "eleven_monolingual_v1"
+    elevenlabs_model_id: str = "eleven_multilingual_v2"
 
     cartesia_api_key: str = ""
-    cartesia_model_id: str = "sonic-english"
+    cartesia_model_id: str = "sonic"
 
     deepgram_api_key: str = ""
     deepgram_model: str = "aura-asteria-en"
