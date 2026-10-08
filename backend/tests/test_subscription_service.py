@@ -8,6 +8,8 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db.base import Base
 from app.models.subscription import SubscriptionPlan
+from app.payments.base import PaymentWebhookEvent
+from app.payments.webhook_service import PaymentWebhookService
 from app.services.subscription_service import SubscriptionService
 
 
@@ -91,6 +93,26 @@ async def test_create_subscription(test_session):
 
 
 @pytest.mark.asyncio
+async def test_create_subscription_stores_provider_neutral_identifiers(test_session):
+    provider_period_end = (datetime.now(UTC) + timedelta(days=365)).replace(tzinfo=None)
+    subscription = await SubscriptionService.create_subscription(
+        user_id="provider_user",
+        plan_id="pro",
+        provider_name="examplepay",
+        provider_subscription_id="sub_example_123",
+        provider_customer_id="cus_example_123",
+        provider_period_end=provider_period_end,
+        session=test_session,
+    )
+
+    assert subscription.provider_name == "examplepay"
+    assert subscription.provider_subscription_id == "sub_example_123"
+    assert subscription.provider_customer_id == "cus_example_123"
+    assert subscription.stripe_subscription_id is None
+    assert subscription.expires_at == provider_period_end
+
+
+@pytest.mark.asyncio
 async def test_get_user_subscription(test_session):
     """Test retrieving user subscription."""
     user_id = "test_user_2"
@@ -131,6 +153,58 @@ async def test_upgrade_subscription(test_session):
 
     assert upgraded.plan_id == "pro"
     assert upgraded.renewed_at is not None
+
+
+@pytest.mark.asyncio
+async def test_renew_subscription_ignores_duplicate_provider_payment(test_session):
+    subscription = await SubscriptionService.create_subscription(
+        user_id="renewal_user",
+        plan_id="pro",
+        provider_name="examplepay",
+        provider_subscription_id="sub_renewal_123",
+        session=test_session,
+    )
+    initial_expiration = subscription.expires_at
+
+    first = await SubscriptionService.renew_subscription(
+        subscription.user_id,
+        test_session,
+        provider_payment_id="invoice_123",
+    )
+    renewed_expiration = first.expires_at
+    duplicate = await SubscriptionService.renew_subscription(
+        subscription.user_id,
+        test_session,
+        provider_payment_id="invoice_123",
+    )
+
+    assert renewed_expiration > initial_expiration
+    assert duplicate.expires_at == renewed_expiration
+
+
+@pytest.mark.asyncio
+async def test_normalized_provider_webhook_creates_subscription(test_session):
+    event = PaymentWebhookEvent(
+        event_type="subscription.created",
+        event_id="evt_example_123",
+        data={
+            "user_id": "webhook_user",
+            "plan_id": "pro",
+            "provider_subscription_id": "sub_example_123",
+            "provider_customer_id": "cus_example_123",
+            "status": "active",
+        },
+    )
+
+    result = await PaymentWebhookService.handle("examplepay", event, test_session)
+    subscription = await SubscriptionService.get_user_subscription(
+        "webhook_user", test_session
+    )
+
+    assert result["status"] == "success"
+    assert subscription.provider_name == "examplepay"
+    assert subscription.provider_subscription_id == "sub_example_123"
+    assert subscription.stripe_subscription_id is None
 
 
 @pytest.mark.asyncio

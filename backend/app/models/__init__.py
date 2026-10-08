@@ -15,6 +15,7 @@ from app.models.subscription import SubscriptionPlan, UserSubscription
 from app.models.task import Task
 from app.models.user import User
 from app.models.voice import SystemVoice, UserVoice
+from app.models.payment import PaymentTransaction, WebhookEvent
 
 __all__ = [
     "Conversation",
@@ -29,4 +30,6 @@ __all__ = [
     "Reminder",
     "UserVoice",
     "SystemVoice",
+    "PaymentTransaction",
+    "WebhookEvent",
 ]

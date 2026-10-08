@@ -55,7 +55,7 @@ async def test_stripe_webhook_invalid_payload(client):
             "/webhooks/stripe", content=b"{}", headers={"stripe-signature": "test"}
         )
         assert response.status_code == 400
-        assert response.json()["detail"] == "Invalid payload"
+        assert response.json()["detail"] == "Invalid webhook signature or payload"
 
 
 async def test_stripe_webhook_invalid_signature(client):
@@ -71,7 +71,7 @@ async def test_stripe_webhook_invalid_signature(client):
             "/webhooks/stripe", content=b"{}", headers={"stripe-signature": "test"}
         )
         assert response.status_code == 400
-        assert response.json()["detail"] == "Invalid signature"
+        assert response.json()["detail"] == "Invalid webhook signature or payload"
 
 
 async def test_stripe_webhook_checkout_completed(client):
@@ -101,7 +101,7 @@ async def test_stripe_webhook_checkout_completed_no_user(client):
             "/webhooks/stripe", content=b"{}", headers={"stripe-signature": "test"}
         )
         assert response.status_code == 200
-        assert response.json()["status"] == "success"
+        assert response.json()["status"] == "ignored"
 
 
 async def test_github_adapter_coverage():

@@ -201,7 +201,7 @@ async def test_tasks_crud_flow(client: AsyncClient, auth_headers: dict):
 # ---------------------------------------------------------------------------
 
 
-async def test_subscriptions_endpoints(client: AsyncClient, auth_headers: dict):
+async def test_subscriptions_endpoints(client: AsyncClient, auth_headers: dict, monkeypatch):
     # List plans (requires auth)
     plans_res = await client.get("/subscriptions/plans", headers=auth_headers)
     assert plans_res.status_code == 200
@@ -211,26 +211,49 @@ async def test_subscriptions_endpoints(client: AsyncClient, auth_headers: dict):
     my_sub_res = await client.get("/subscriptions/me", headers=auth_headers)
     assert my_sub_res.status_code in (200, 404)
 
-    # Upgrade subscription
+    # Upgrade starts checkout; the local subscription is created after a verified webhook.
+    from types import SimpleNamespace
+
+    class CheckoutProvider:
+        provider_name = "stripe"
+
+        async def create_checkout_session(self, request):
+            assert request.plan_id == "pro"
+            assert request.amount_cents == 999
+            return SimpleNamespace(
+                session_id="cs_test_123",
+                url="https://checkout.example.test/cs_test_123",
+                expires_at=123456,
+            )
+
+    monkeypatch.setattr(
+        "app.api.subscriptions.get_payment_provider",
+        lambda: CheckoutProvider(),
+    )
     upgrade_res = await client.post(
         "/subscriptions/upgrade",
-        json={"plan_id": "pro"},
+        json={
+            "plan_id": "pro",
+            "success_url": "https://app.example.test/success",
+            "cancel_url": "https://app.example.test/cancel",
+        },
         headers=auth_headers,
     )
     assert upgrade_res.status_code == 200
-    assert upgrade_res.json()["plan_id"] == "pro"
+    assert upgrade_res.json()["provider_name"] == "stripe"
+    assert upgrade_res.json()["checkout_url"] == "https://checkout.example.test/cs_test_123"
 
     # Get stats
     stats_res = await client.get("/subscriptions/stats", headers=auth_headers)
     assert stats_res.status_code == 200
 
-    # Cancel subscription
+    # No local subscription exists until the provider confirms checkout.
     cancel_res = await client.post(
         "/subscriptions/cancel",
         json={"reason": "Testing cancellation"},
         headers=auth_headers,
     )
-    assert cancel_res.status_code == 200
+    assert cancel_res.status_code == 404
 
 
 # ---------------------------------------------------------------------------
