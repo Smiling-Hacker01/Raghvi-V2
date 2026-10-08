@@ -25,6 +25,7 @@ class PaymentWebhookService:
     ) -> dict[str, Any]:
         """Dispatch a normalized event with idempotency."""
         from sqlalchemy.exc import IntegrityError
+
         from app.models.payment import WebhookEvent
 
         # 1. Log event and acquire idempotency lock via unique constraint
@@ -37,7 +38,7 @@ class PaymentWebhookService:
                 event_id=event.event_id,
                 event_type=event.event_type,
                 payload=event.data,
-                processed=False
+                processed=False,
             )
             try:
                 session.add(webhook_event)
@@ -57,21 +58,21 @@ class PaymentWebhookService:
             "checkout.completed": PaymentWebhookService._checkout_completed,
         }
         handler = handlers.get(event.event_type)
-        
+
         try:
             if handler is None:
                 logger.info("Unhandled %s payment event: %s", provider_name, event.event_type)
                 result = {"status": "unhandled", "event_type": event.event_type}
             else:
                 result = await handler(provider_name, event.data, session)
-            
+
             # 3. Mark processed
             if webhook_event:
                 webhook_event.processed = True
                 webhook_event.processed_at = datetime.now(UTC).replace(tzinfo=None)
                 session.add(webhook_event)
                 await session.commit()
-                
+
             return result
         except Exception as e:
             if webhook_event:
@@ -99,9 +100,7 @@ class PaymentWebhookService:
             provider_name=provider_name,
             provider_subscription_id=subscription_id,
             provider_customer_id=data.get("provider_customer_id"),
-            provider_period_end=PaymentWebhookService._period_end(
-                data.get("current_period_end")
-            ),
+            provider_period_end=PaymentWebhookService._period_end(data.get("current_period_end")),
             session=session,
         )
         return {"status": "success", "user_id": user_id, "plan_id": plan_id}
@@ -126,9 +125,7 @@ class PaymentWebhookService:
         elif status_value == "past_due":
             logger.warning("Payment is past due for subscription %s", subscription.id)
         elif status_value in {"active", "trialing"} and data.get("current_period_end"):
-            subscription.expires_at = PaymentWebhookService._period_end(
-                data["current_period_end"]
-            )
+            subscription.expires_at = PaymentWebhookService._period_end(data["current_period_end"])
             await session.commit()
         return {"status": "success"}
 
@@ -163,9 +160,7 @@ class PaymentWebhookService:
             subscription.user_id,
             session,
             provider_payment_id=data.get("provider_payment_id"),
-            provider_period_end=PaymentWebhookService._period_end(
-                data.get("current_period_end")
-            ),
+            provider_period_end=PaymentWebhookService._period_end(data.get("current_period_end")),
         )
         return {"status": "success"}
 

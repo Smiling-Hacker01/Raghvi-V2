@@ -197,9 +197,7 @@ async def test_normalized_provider_webhook_creates_subscription(test_session):
     )
 
     result = await PaymentWebhookService.handle("examplepay", event, test_session)
-    subscription = await SubscriptionService.get_user_subscription(
-        "webhook_user", test_session
-    )
+    subscription = await SubscriptionService.get_user_subscription("webhook_user", test_session)
 
     assert result["status"] == "success"
     assert subscription.provider_name == "examplepay"

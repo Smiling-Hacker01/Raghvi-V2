@@ -120,9 +120,7 @@ class StripeProvider(PaymentProvider):
                 provider_customer_id=self._object_id(subscription.customer),
                 status=subscription.status,
                 current_period_end=subscription.current_period_end,
-                plan_id=subscription.metadata.get("plan_id")
-                if subscription.metadata
-                else None,
+                plan_id=subscription.metadata.get("plan_id") if subscription.metadata else None,
             )
         except stripe.error.StripeError as exc:
             raise self._provider_error(exc) from exc
@@ -170,9 +168,7 @@ class StripeProvider(PaymentProvider):
         raw_data = raw_object.to_dict() if hasattr(raw_object, "to_dict") else dict(raw_object)
         event_type = event["type"]
         event_id = getattr(event, "id", None)
-        normalized_type, normalized_data = await self._normalize_webhook(
-            event_type, raw_data
-        )
+        normalized_type, normalized_data = await self._normalize_webhook(event_type, raw_data)
         return PaymentWebhookEvent(
             event_type=normalized_type,
             data=normalized_data,

@@ -106,9 +106,7 @@ async def test_stripe_checkout_uses_server_supplied_amount_and_preserves_metadat
 
 @pytest.mark.asyncio
 async def test_stripe_webhook_verification_returns_normalized_event():
-    provider = StripeProvider(
-        PaymentProviderConfig(name="stripe", webhook_secret="whsec_test")
-    )
+    provider = StripeProvider(PaymentProviderConfig(name="stripe", webhook_secret="whsec_test"))
     raw_event = {
         "type": "checkout.session.completed",
         "data": {"object": {"id": "cs_test"}},
@@ -117,9 +115,7 @@ async def test_stripe_webhook_verification_returns_normalized_event():
         "app.payments.providers.stripe_provider.stripe.Webhook.construct_event",
         return_value=raw_event,
     ):
-        event = await provider.verify_webhook_signature(
-            b"{}", {"stripe-signature": "signature"}
-        )
+        event = await provider.verify_webhook_signature(b"{}", {"stripe-signature": "signature"})
 
     assert event == PaymentWebhookEvent(
         event_type="checkout.completed",

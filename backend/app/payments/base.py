@@ -128,4 +128,3 @@ class PaymentProvider(ABC):
     ) -> PaymentWebhookEvent:
         """Verify a webhook and normalize its event for the application."""
         pass
-

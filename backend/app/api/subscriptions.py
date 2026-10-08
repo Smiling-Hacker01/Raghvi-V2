@@ -201,11 +201,7 @@ async def cancel_subscription(
     """Cancel subscription."""
     try:
         subscription = await SubscriptionService.get_user_subscription(current_user.id, session)
-        provider_subscription_id = (
-            subscription.provider_subscription_id
-            if subscription
-            else None
-        )
+        provider_subscription_id = subscription.provider_subscription_id if subscription else None
         if subscription and provider_subscription_id:
             provider_name = subscription.provider_name or "stripe"
             provider = get_payment_provider(provider_name)
