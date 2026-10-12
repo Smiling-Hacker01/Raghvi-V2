@@ -3,7 +3,7 @@
 **Status:** Living Document
 **Owner:** Vishal Singh Kushwaha
 **Created:** 2026-07-02
-**Last Updated:** 2026-07-08
+**Last Updated:** 2026-10-12
 
 ## Purpose
 
@@ -68,6 +68,7 @@ Anything outside this focus should be parked unless a new decision explicitly ch
 | Multi-agent workflows         | North Star    | Could support specialized planning and execution.               | Adds orchestration complexity before the single-agent loop is proven.                 | After ADR-002 and a stable single-agent architecture.              |
 | Plugin ecosystem              | North Star    | Lets third parties extend Raghvi.                               | Requires stable APIs, sandboxing, and security review.                                | After internal tool APIs are mature.                               |
 | Hands-free voice coding agent | North Star    | Lets users build applications entirely through conversational voice commands while away from keyboard. Raghvi gathers requirements, creates repos, writes code, tests, and asks clarifying questions midway. | Requires advanced voice streaming, robust agentic autonomous coding, complex state management, and reliable testing loops without manual intervention. | After voice conversations, text-based coding assistance, and multi-agent workflows are mature. |
+| Tiered Personalities (Assistant, Friend, Girlfriend, Boyfriend, Wife, Husband) | Roadmap | Allows users to customize Raghvi's relational role, tone, and companionship dynamic (e.g., professional assistant, casual friend, girlfriend/boyfriend, wife/husband), with personality access gated based on subscription tier (Free, Pro, Premium). | Requires dedicated system prompts, persona boundary & safety guardrails, stateful relationship memory, and subscription tier entitlement checks in the backend chat pipeline. | After subscription management and payments are stable, and safety/emotional boundary guidelines are defined. |
 
 ## Parked Engineering Ideas
 
@@ -182,3 +183,4 @@ An idea may move out of this document only when all of the following are true:
 | Date       | Change                    |
 | ---------- | ------------------------- |
 | 2026-07-02 | Initial document created. |
+| 2026-10-12 | Added subscription-tiered companion personalities (assistant, friend, girlfriend, boyfriend, wife, husband). |
