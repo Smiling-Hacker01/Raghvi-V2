@@ -9,7 +9,11 @@ import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 object ApiClient {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+        isLenient = true
+    }
     private lateinit var tokenManager: TokenManager
 
     var onAuthenticationRequired: (() -> Unit)? = null
