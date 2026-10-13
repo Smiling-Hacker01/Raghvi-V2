@@ -63,6 +63,18 @@ async def test_signup_login_and_me(client: httpx.AsyncClient) -> None:
     assert signup_tokens["access_token"]
     assert signup_tokens["refresh_token"]
 
+    # Verify /auth/register alias
+    register = await client.post(
+        "/auth/register",
+        json={
+            "username": "registeruser",
+            "email": "register@example.com",
+            "password": "super-secret-password",
+        },
+    )
+    assert register.status_code == 201
+    assert register.json()["access_token"]
+
     duplicate = await client.post(
         "/auth/signup",
         json={

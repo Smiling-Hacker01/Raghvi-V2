@@ -29,7 +29,10 @@ import com.raghvi.assistant.network.LoginRequest
 import kotlinx.coroutines.launch
 
 @Composable
-fun LoginScreen(onLoginSuccess: () -> Unit) {
+fun LoginScreen(
+    onLoginSuccess: () -> Unit,
+    onNavigateToRegister: () -> Unit = {}
+) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
@@ -99,6 +102,15 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 )
             } else {
                 Text("Sign in")
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        androidx.compose.foundation.layout.Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Don't have an account?", style = MaterialTheme.typography.bodyMedium)
+            androidx.compose.material3.TextButton(onClick = onNavigateToRegister) {
+                Text("Sign up")
             }
         }
     }
