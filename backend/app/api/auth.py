@@ -106,6 +106,7 @@ async def _get_valid_refresh_token(session: AsyncSession, token: str) -> Refresh
     return token_record
 
 
+@router.post("/register", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
 @router.post("/signup", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
 async def signup(request: SignupRequest, session: DbSession) -> AuthTokens:
     user = User(

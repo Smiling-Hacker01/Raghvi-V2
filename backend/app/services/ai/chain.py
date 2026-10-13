@@ -72,7 +72,7 @@ class AIProviderChain:
 
         # Add fallback providers (any not already in chain)
         # Order: faster/free providers first, then premium
-        fallback_order = ["groq", "github", "gemini", "openrouter", "huggingface", "openai"]
+        fallback_order = ["openrouter", "groq", "gemini", "github", "huggingface", "openai"]
         for provider in fallback_order:
             if provider == primary:
                 # Skip primary, already attempted
