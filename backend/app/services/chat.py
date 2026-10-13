@@ -142,6 +142,7 @@ class ChatService:
             session=session,
         )
 
+        from app.services.research import ResearchRequest, get_research_service
         from app.services.task_service import TaskService
 
         tasks_task = TaskService.get_active_tasks(
@@ -149,23 +150,44 @@ class ChatService:
             session=session,
         )
 
+        # Web research classification
+        research_service = get_research_service()
+        needs_search, search_query = research_service.classify_query(user_message_content)
+
+        research_task = None
+        if needs_search:
+            research_task = research_service.execute_research(
+                ResearchRequest(query=search_query, max_results=4)
+            )
+
         # Wait for all in parallel
-        conversation, relevant_memories, active_tasks = await asyncio.gather(
-            conversation_task,
-            memories_task,
-            tasks_task,
-        )
+        if research_task:
+            conversation, relevant_memories, active_tasks, research_resp = await asyncio.gather(
+                conversation_task,
+                memories_task,
+                tasks_task,
+                research_task,
+            )
+        else:
+            conversation, relevant_memories, active_tasks = await asyncio.gather(
+                conversation_task,
+                memories_task,
+                tasks_task,
+            )
+            research_resp = None
 
         logger.info(
             f"Chat for user {user_id}: retrieved {len(relevant_memories)} memories, "
-            f"{len(active_tasks)} active tasks"
+            f"{len(active_tasks)} active tasks, "
+            f"research={bool(research_resp and research_resp.performed_search)}"
         )
 
-        # OPTIMIZATION 2: Build system prompt (with cached creator profile & active tasks)
+        # OPTIMIZATION 2: Build system prompt (with cached creator profile, active tasks & research)
         system_prompt = await build_system_prompt(
             user_memories=relevant_memories,
             session=session,
             user_tasks=active_tasks,
+            web_research_context=research_resp.synthesized_context if research_resp else None,
         )
 
         # Get recent message history for context window
@@ -300,12 +322,23 @@ class ChatService:
             except Exception as e:
                 logger.warning(f"Task extraction failed for user {user_id}: {e}")
 
+        citations_data = [
+            {
+                "id": c.id,
+                "title": c.title,
+                "url": c.url,
+                "snippet": c.snippet,
+            }
+            for c in (research_resp.citations if research_resp else [])
+        ]
+
         return {
             "user_message": user_message_content,
             "assistant_message": chat_text,
             "voice_text": voice_text,
             "emotion": emotion,
             "tokens_used": tokens_used,
+            "citations": citations_data,
         }
 
     @staticmethod

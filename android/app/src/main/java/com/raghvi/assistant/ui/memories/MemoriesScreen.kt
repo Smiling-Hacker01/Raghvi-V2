@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -45,6 +47,7 @@ import com.raghvi.assistant.network.MemoryItem
 @Composable
 fun MemoriesScreen(
     onNavigateBack: () -> Unit = {},
+    onNavigateToTab: ((String) -> Unit)? = null,
     viewModel: MemoriesViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -56,7 +59,10 @@ fun MemoriesScreen(
                 title = { Text("Memory Management") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Text("←", style = MaterialTheme.typography.titleLarge)
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 },
                 actions = {
@@ -65,9 +71,17 @@ fun MemoriesScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
                 )
             )
+        },
+        bottomBar = {
+            if (onNavigateToTab != null) {
+                com.raghvi.assistant.ui.components.RaghviBottomBar(
+                    currentDestination = "memories",
+                    onNavigate = onNavigateToTab
+                )
+            }
         }
     ) { paddingValues ->
         Column(

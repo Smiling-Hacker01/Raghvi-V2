@@ -13,7 +13,15 @@ from app.models.action import ActionProposal
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_ACTIONS = {"draft_email", "open_maps", "open_app"}
+SUPPORTED_ACTIONS = {
+    "draft_email",
+    "send_email",
+    "open_maps",
+    "open_app",
+    "schedule_meeting",
+    "create_calendar_event",
+    "send_whatsapp_message",
+}
 
 
 class ActionService:
@@ -26,10 +34,26 @@ class ActionService:
             actions_str = ", ".join(sorted(SUPPORTED_ACTIONS))
             raise ValueError(f"Unsupported action type '{action_type}'. Supported: {actions_str}")
 
-        if action_type == "draft_email":
+        if action_type in ("draft_email", "send_email"):
             recipient = parameters.get("recipient", "")
             if recipient and ("@" not in recipient or "." not in recipient):
                 raise ValueError("Recipient must be a valid email address")
+
+        elif action_type in ("schedule_meeting", "create_calendar_event"):
+            title = parameters.get("title") or parameters.get("summary")
+            if not title or not str(title).strip():
+                raise ValueError("Meeting or calendar event requires a title")
+            date_val = parameters.get("date") or parameters.get("start_time")
+            if not date_val:
+                raise ValueError("Meeting or calendar event requires a date or start_time")
+
+        elif action_type == "send_whatsapp_message":
+            recipient = parameters.get("recipient") or parameters.get("phone")
+            message = parameters.get("message") or parameters.get("text")
+            if not recipient or not str(recipient).strip():
+                raise ValueError("WhatsApp action requires a recipient or phone number")
+            if not message or not str(message).strip():
+                raise ValueError("WhatsApp action requires a non-empty message")
 
         elif action_type == "open_maps":
             destination = parameters.get("destination") or parameters.get("address")

@@ -25,6 +25,9 @@ class ChatSendResponse(BaseModel):
     user_message: str
     assistant_message: str
     tokens_used: int
+    voice_text: str | None = None
+    emotion: str | None = None
+    citations: list[dict] = Field(default_factory=list, description="Verified web search citations")
     # Note: Never expose "provider_used" - that's internal only
 
 

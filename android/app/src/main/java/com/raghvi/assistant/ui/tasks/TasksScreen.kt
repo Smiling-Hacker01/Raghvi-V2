@@ -17,7 +17,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -43,6 +46,7 @@ import com.raghvi.assistant.network.TaskItem
 @Composable
 fun TasksScreen(
     onNavigateBack: () -> Unit = {},
+    onNavigateToTab: ((String) -> Unit)? = null,
     viewModel: TasksViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -55,7 +59,10 @@ fun TasksScreen(
                 title = { Text("Tasks & Reminders") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Text("←", style = MaterialTheme.typography.titleLarge)
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 },
                 actions = {
@@ -64,9 +71,17 @@ fun TasksScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
                 )
             )
+        },
+        bottomBar = {
+            if (onNavigateToTab != null) {
+                com.raghvi.assistant.ui.components.RaghviBottomBar(
+                    currentDestination = "tasks",
+                    onNavigate = onNavigateToTab
+                )
+            }
         }
     ) { paddingValues ->
         Column(

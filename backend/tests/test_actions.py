@@ -161,3 +161,47 @@ async def test_cross_user_action_isolation(client: httpx.AsyncClient) -> None:
         json={"confirmed": True},
     )
     assert forbidden_confirm.status_code == 404
+
+
+async def test_meeting_and_whatsapp_action_proposals(client: httpx.AsyncClient) -> None:
+    signup = await client.post(
+        "/auth/signup",
+        json={"username": "commuser", "email": "comm@example.com", "password": "password123"},
+    )
+    assert signup.status_code == 201
+    headers = {"Authorization": f"Bearer {signup.json()['access_token']}"}
+
+    # 1. Propose Meeting
+    meeting_res = await client.post(
+        "/actions/propose",
+        headers=headers,
+        json={
+            "action_type": "schedule_meeting",
+            "parameters": {
+                "title": "Design Sync with Team",
+                "date": "2026-10-15 15:00",
+                "participants": ["alex@example.com"],
+            },
+        },
+    )
+    assert meeting_res.status_code == 201
+    meeting_data = meeting_res.json()
+    assert meeting_data["action_type"] == "schedule_meeting"
+    assert meeting_data["parameters"]["title"] == "Design Sync with Team"
+
+    # 2. Propose WhatsApp Message
+    wa_res = await client.post(
+        "/actions/propose",
+        headers=headers,
+        json={
+            "action_type": "send_whatsapp_message",
+            "parameters": {
+                "phone": "+919876543210",
+                "message": "Hey, I will reach in 10 minutes!",
+            },
+        },
+    )
+    assert wa_res.status_code == 201
+    wa_data = wa_res.json()
+    assert wa_data["action_type"] == "send_whatsapp_message"
+    assert wa_data["parameters"]["phone"] == "+919876543210"

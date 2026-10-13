@@ -110,11 +110,21 @@ fun RaghviNavGraph(modifier: Modifier = Modifier) {
             BackendStatusScreen()
         }
 
+        fun navigateToTab(destination: String) {
+            navController.navigate(destination) {
+                popUpTo(RaghviDestinations.CHAT) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+
         composable(RaghviDestinations.CHAT) {
             ChatScreen(
-                onNavigateToMemories = { navController.navigate(RaghviDestinations.MEMORIES) },
-                onNavigateToTasks = { navController.navigate(RaghviDestinations.TASKS) },
-                onNavigateToPrivacy = { navController.navigate(RaghviDestinations.PRIVACY) },
+                onNavigateToMemories = { navigateToTab(RaghviDestinations.MEMORIES) },
+                onNavigateToTasks = { navigateToTab(RaghviDestinations.TASKS) },
+                onNavigateToPrivacy = { navigateToTab(RaghviDestinations.PRIVACY) },
                 onLogout = {
                     ApiClient.tokens().clearTokens()
                     navController.navigate(RaghviDestinations.LOGIN) {
@@ -126,19 +136,22 @@ fun RaghviNavGraph(modifier: Modifier = Modifier) {
 
         composable(RaghviDestinations.MEMORIES) {
             MemoriesScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToTab = { destination -> navigateToTab(destination) }
             )
         }
 
         composable(RaghviDestinations.TASKS) {
             TasksScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToTab = { destination -> navigateToTab(destination) }
             )
         }
 
         composable(RaghviDestinations.PRIVACY) {
             PrivacyScreen(
                 onNavigateBack = { navController.popBackStack() },
+                onNavigateToTab = { destination -> navigateToTab(destination) },
                 onAccountDeleted = {
                     navController.navigate(RaghviDestinations.LOGIN) {
                         popUpTo(navController.graph.id) { inclusive = true }

@@ -55,10 +55,19 @@ data class ChatSendRequest(
 )
 
 @Serializable
+data class CitationModel(
+    val id: Int,
+    val title: String,
+    val url: String,
+    val snippet: String = ""
+)
+
+@Serializable
 data class ChatSendResponse(
     val user_message: String,
     val assistant_message: String,
-    val tokens_used: Int? = null
+    val tokens_used: Int? = null,
+    val citations: List<CitationModel>? = null
 )
 
 @Serializable
