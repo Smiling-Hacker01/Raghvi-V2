@@ -279,6 +279,10 @@ interface RaghviApiService {
 
     @DELETE("/users/me")
     suspend fun deleteAccount()
+
+    // Real Communications Sync (WhatsApp notifications / emails)
+    @POST("/communications/seed")
+    suspend fun seedCommunication(@Body request: SeedCommunicationRequest): JsonObject
 }
 
 // M5 Data Models
@@ -334,5 +338,18 @@ data class ActionProposalResponse(
     val expires_at: String,
     val created_at: String,
     val confirmed_at: String? = null
+)
+
+@Serializable
+data class SeedCommunicationRequest(
+    val channel: String,
+    val sender: String,
+    val sender_name: String,
+    val recipient: String = "me",
+    val subject: String? = null,
+    val body: String,
+    val thread_id: String? = null,
+    val account_id: String? = null,
+    val account_label: String? = null
 )
 
