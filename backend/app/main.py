@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -21,6 +23,8 @@ from app.api.voices import router as voices_router
 from app.api.webhooks import router as webhooks_router
 from app.services.creator_seed import ensure_creator_seeded_on_startup
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,8 +34,21 @@ async def lifespan(app: FastAPI):
     from app.db.base import Base
     from app.db.session import engine
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    retries = 10
+    while retries > 0:
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            break
+        except Exception as e:
+            retries -= 1
+            if retries == 0:
+                logger.error(f"Failed to connect to database on startup after retries: {e}")
+                raise
+            logger.warning(
+                f"Database not ready on startup ({e}). Retrying in 2s ({retries} left)..."
+            )
+            await asyncio.sleep(2)
 
     # Automatic creator profile seeding on startup across any environment
     await ensure_creator_seeded_on_startup()

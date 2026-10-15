@@ -41,7 +41,8 @@ def test_build_voice_adapter_configured_providers():
 
     with patch("app.services.voice.voice_adapter_builder.get_settings", return_value=mock_settings):
         adapter = build_voice_adapter()
-        assert len(adapter.providers) == 6
+        # 7 providers: edge_tts + 6 configured providers
+        assert len(adapter.providers) == 7
 
     reset_voice_adapter()
 
