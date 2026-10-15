@@ -548,8 +548,8 @@ async def synthesize_speech(
 
         # Option 1: Return as playable binary audio directly in Postman / browser
         if response_format == "audio":
-            media_type = f"audio/{response.audio_format}" if response.audio_format in ["mp3", "wav", "ogg"] else "audio/mpeg"
             ext = response.audio_format if response.audio_format in ["mp3", "wav", "ogg"] else "mp3"
+            media_type = f"audio/{ext}" if ext != "mp3" else "audio/mpeg"
             return Response(
                 content=response.audio_data,
                 media_type=media_type,

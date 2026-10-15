@@ -58,7 +58,9 @@ class ScheduleMeetingRequest(BaseModel):
     description: str | None = None
     auto_confirm: bool = Field(
         default=False,
-        description="If True, immediately confirms proposal and dispatches invite emails to attendees.",
+        description=(
+            "If True, immediately confirms proposal and dispatches invite emails to attendees."
+        ),
     )
 
 

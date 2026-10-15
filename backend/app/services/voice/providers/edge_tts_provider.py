@@ -56,7 +56,9 @@ class EdgeTTSProvider(VoiceProvider):
     def __init__(self, config: dict[str, Any]):
         super().__init__(config)
         if edge_tts is None:
-            raise VoiceProviderError("edge_tts package is not installed. Install via: pip install edge-tts")
+            raise VoiceProviderError(
+                "edge_tts package is not installed. Install via: pip install edge-tts"
+            )
         self.default_hindi_voice = config.get("hindi_voice", self.DEFAULT_HINDI_VOICE)
         self.default_english_voice = config.get("english_voice", self.DEFAULT_ENGLISH_VOICE)
         self.base_rate = config.get("rate", "-12%")
@@ -67,7 +69,8 @@ class EdgeTTSProvider(VoiceProvider):
         raise VoiceProviderError(
             "Edge TTS does not support instant voice cloning from audio files. "
             "It provides free, studio-quality Indian neural voices: "
-            f"'{self.DEFAULT_HINDI_VOICE}' (Hindi/Hinglish) and '{self.DEFAULT_ENGLISH_VOICE}' (Indian English)."
+            f"'{self.DEFAULT_HINDI_VOICE}' (Hindi/Hinglish) and "
+            f"'{self.DEFAULT_ENGLISH_VOICE}' (Indian English)."
         )
 
     async def synthesize_speech(self, request: VoiceSynthesisRequest) -> VoiceSynthesisResponse:
@@ -97,8 +100,8 @@ class EdgeTTSProvider(VoiceProvider):
 
             # ── Voice Selection & Provider Routing ─────────────────────────────
             # If the user passed a specific Edge TTS voice name, honor it.
-            # If it's a generic default or an un-cloned UUID fallback, use authentic Indian voices.
-            # If it's an explicit custom third-party voice (e.g. ElevenLabs ID), delegate to next provider.
+            # If generic default or un-cloned UUID fallback, use authentic Indian voices.
+            # If explicit custom third-party voice (e.g. ElevenLabs ID), delegate.
             voice_id_str = (request.voice_id or "").strip()
             is_edge_voice = bool("-IN-" in voice_id_str or voice_id_str.endswith("Neural"))
             is_uuid = bool(

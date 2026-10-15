@@ -247,11 +247,18 @@ async def schedule_meeting(
         cal_created = params.get("calendar_created", False)
         reauth_needed = params.get("requires_calendar_reauth", False)
 
-        msg = f"Meeting scheduled! Google Meet link: {meet_link}. Calendar invite emails sent to {', '.join(request.attendees)}."
+        attendees_str = ", ".join(request.attendees)
+        msg = (
+            f"Meeting scheduled! Google Meet link: {meet_link}. "
+            f"Calendar invite emails sent to {attendees_str}."
+        )
         if cal_created:
             msg += " Direct Google Calendar event created."
         elif reauth_needed:
-            msg += " (Note: Direct Google Calendar sync requires calendar scope re-authorization; calendar invite email with RSVP was sent via Gmail)."
+            msg += (
+                " (Note: Direct Google Calendar sync requires calendar scope re-authorization; "
+                "calendar invite email with RSVP was sent via Gmail)."
+            )
 
         return {
             "proposal_id": str(confirmed_prop.id),
@@ -270,8 +277,9 @@ async def schedule_meeting(
         "description": proposal.description,
         "meet_link": meet_link,
         "action_required": (
-            f"Action proposal created and awaiting confirmation. Call POST /actions/{proposal.id}/confirm "
-            "with {\"confirmed\": true} to dispatch invitation emails, or pass auto_confirm=true."
+            f"Action proposal created and awaiting confirmation. "
+            f"Call POST /actions/{proposal.id}/confirm with {{\"confirmed\": true}} "
+            "to dispatch invitation emails, or pass auto_confirm=true."
         ),
     }
 

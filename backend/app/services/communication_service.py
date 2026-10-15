@@ -266,7 +266,10 @@ class CommunicationService:
         }
 
         attendees_str = ", ".join(parameters["attendees"]) if parameters["attendees"] else "self"
-        desc = f"Schedule '{title}' on {date} at {start_time} with {attendees_str} (Google Meet: {meet_link})"
+        desc = (
+            f"Schedule '{title}' on {date} at {start_time} with {attendees_str} "
+            f"(Google Meet: {meet_link})"
+        )
 
         proposal = ActionProposal(
             user_id=str(user_id),
@@ -278,7 +281,9 @@ class CommunicationService:
         session.add(proposal)
         await session.commit()
         await session.refresh(proposal)
-        logger.info(f"Created meeting proposal {proposal.id} for user {user_id} with Meet link {meet_link}")
+        logger.info(
+            f"Created meeting proposal {proposal.id} for user {user_id} with Meet link {meet_link}"
+        )
         return proposal
 
     @classmethod
@@ -293,15 +298,15 @@ class CommunicationService:
         meet_link: str | None = None,
         session: AsyncSession = None,
     ) -> dict[str, Any]:
-        """Dispatch real meeting invitations to all attendees via user's connected Gmail OAuth or SMTP."""
+        """Dispatch meeting invitations to all attendees via Gmail OAuth or SMTP."""
         valid_attendees = [a.strip() for a in attendees if a and "@" in a]
         if not valid_attendees:
             return {"sent_to": [], "failed_to": []}
 
-        from datetime import UTC, datetime, timedelta
         import random
         import string
         import uuid
+        from datetime import UTC, datetime, timedelta
 
         from app.models.connected_account import ConnectedAccount
         from app.services.connected_account_service import ConnectedAccountService
@@ -346,7 +351,7 @@ class CommunicationService:
         dtend_ics = (end_combined - timedelta(hours=5, minutes=30)).strftime("%Y%m%dT%H%M%SZ")
         dtstamp_ics = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
-        # 3. Look for user's connected Google account (prioritizing OAuth2 with refresh token over IMAP/password)
+        # 3. Look for user's connected Google account (prioritizing OAuth2 over IMAP/password)
         email_accounts = (
             await session.scalars(
                 select(ConnectedAccount).where(
@@ -361,7 +366,9 @@ class CommunicationService:
 
         oauth_account = None
         for acc in email_accounts:
-            c = ConnectedAccountService.decrypt_credentials(str(user_id), acc.encrypted_credentials or "")
+            c = ConnectedAccountService.decrypt_credentials(
+                str(user_id), acc.encrypted_credentials or ""
+            )
             if c.get("refresh_token") or c.get("auth_type") == "oauth2":
                 oauth_account = acc
                 break
@@ -385,6 +392,12 @@ class CommunicationService:
             for att in recipients_to_email
         ])
 
+        desc_ics = (
+            f"DESCRIPTION:{description or title}\\n\\n"
+            f"Join with Google Meet: {meet_link}\\n\\n"
+            "Organized via Raghvi AI Assistant\r\n"
+        )
+
         ics_content = (
             "BEGIN:VCALENDAR\r\n"
             "PRODID:-//Google Inc//Google Calendar 70.9054//EN\r\n"
@@ -398,7 +411,7 @@ class CommunicationService:
             f"ORGANIZER;CN=Organizer:mailto:{sender_email}\r\n"
             f"UID:{event_uid}\r\n"
             f"{attendee_ics}\r\n"
-            f"DESCRIPTION:{description or title}\\n\\nJoin with Google Meet: {meet_link}\\n\\nOrganized via Raghvi AI Assistant\r\n"
+            f"{desc_ics}"
             f"LAST-MODIFIED:{dtstamp_ics}\r\n"
             f"LOCATION:{meet_link}\r\n"
             "SEQUENCE:0\r\n"
@@ -421,19 +434,32 @@ class CommunicationService:
         )
 
         attendees_html = ", ".join(recipients_to_email)
+        btn_style = (
+            "background-color: #1a73e8; color: #ffffff; padding: 12px 24px; "
+            "text-decoration: none; border-radius: 4px; font-weight: 500; "
+            "font-size: 14px; display: inline-block;"
+        )
+        box_style = (
+            "font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, "
+            "Arial, sans-serif; max-width: 600px; padding: 24px; border: 1px solid #e0e0e0; "
+            "border-radius: 8px;"
+        )
         html_body = (
-            f"<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; padding: 24px; border: 1px solid #e0e0e0; border-radius: 8px;\">"
-            f"<h2 style=\"color: #1a73e8; margin-top: 0;\">{title}</h2>"
-            f"<p style=\"color: #3c4043; font-size: 15px; margin: 4px 0 16px 0;\"><strong>When:</strong> {date} at {start_time} (IST)</p>"
-            f"<div style=\"margin: 24px 0;\">"
-            f"<a href=\"{meet_link}\" target=\"_blank\" style=\"background-color: #1a73e8; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: 500; font-size: 14px; display: inline-block;\">Join with Google Meet</a>"
-            f"</div>"
-            f"<p style=\"font-size: 13px; color: #5f6368;\">Meeting link: <a href=\"{meet_link}\">{meet_link}</a></p>"
-            f"<p style=\"font-size: 13px; color: #5f6368;\">Details: {description or 'N/A'}</p>"
-            f"<hr style=\"border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;\"/>"
-            f"<p style=\"font-size: 12px; color: #70757a;\">Attendees: {attendees_html}</p>"
-            f"<p style=\"font-size: 11px; color: #9aa0a6;\">Add to your calendar by clicking 'Yes' above or opening the attached invite.ics file.</p>"
-            f"</div>"
+            f'<div style="{box_style}">'
+            f'<h2 style="color: #1a73e8; margin-top: 0;">{title}</h2>'
+            f'<p style="color: #3c4043; font-size: 15px; margin: 4px 0 16px 0;">'
+            f'<strong>When:</strong> {date} at {start_time} (IST)</p>'
+            f'<div style="margin: 24px 0;">'
+            f'<a href="{meet_link}" target="_blank" style="{btn_style}">Join with Google Meet</a>'
+            f'</div>'
+            f'<p style="font-size: 13px; color: #5f6368;">'
+            f'Meeting link: <a href="{meet_link}">{meet_link}</a></p>'
+            f'<p style="font-size: 13px; color: #5f6368;">Details: {description or "N/A"}</p>'
+            f'<hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;"/>'
+            f'<p style="font-size: 12px; color: #70757a;">Attendees: {attendees_html}</p>'
+            f'<p style="font-size: 11px; color: #9aa0a6;">'
+            f'Add to your calendar by clicking "Yes" above or opening the invite.ics file.</p>'
+            f'</div>'
         )
 
         if oauth_account:
@@ -449,16 +475,23 @@ class CommunicationService:
                         access_token = await GoogleOAuthService.refresh_access_token(refresh_token)
                         # Save refreshed token
                         creds["access_token"] = access_token
-                        oauth_account.encrypted_credentials = ConnectedAccountService.encrypt_credentials(str(user_id), creds)
+                        oauth_account.encrypted_credentials = (
+                            ConnectedAccountService.encrypt_credentials(str(user_id), creds)
+                        )
                         await session.commit()
                     except Exception as err:
                         logger.warning(f"Could not refresh Google OAuth token for invites: {err}")
 
                 if access_token:
                     # ── Method A: Direct Google Calendar API with Google Meet ──
+                    desc_cal = (
+                        f"{description or 'Meeting'}\n\n"
+                        f"Join with Google Meet: {meet_link}\n\n"
+                        "Scheduled via Raghvi Personal AI Assistant"
+                    )
                     cal_payload = {
                         "summary": title,
-                        "description": f"{description or 'Meeting'}\n\nJoin with Google Meet: {meet_link}\n\nScheduled via Raghvi Personal AI Assistant",
+                        "description": desc_cal,
                         "start": {"dateTime": start_iso, "timeZone": "Asia/Kolkata"},
                         "end": {"dateTime": end_iso, "timeZone": "Asia/Kolkata"},
                         "attendees": [{"email": a} for a in valid_attendees],
@@ -471,10 +504,14 @@ class CommunicationService:
                     }
 
                     try:
+                        cal_url = (
+                            "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+                            "?conferenceDataVersion=1&sendUpdates=all"
+                        )
                         async with (
                             aiohttp.ClientSession() as client,
                             client.post(
-                                "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all",
+                                cal_url,
                                 headers={
                                     "Authorization": f"Bearer {access_token}",
                                     "Content-Type": "application/json",
@@ -495,7 +532,8 @@ class CommunicationService:
                             else:
                                 cal_err = await cal_resp.text()
                                 logger.warning(
-                                    f"Calendar API returned {cal_resp.status} (falling back to rich iCalendar email): {cal_err}"
+                                    f"Calendar API returned {cal_resp.status} "
+                                    f"(falling back to rich iCalendar email): {cal_err}"
                                 )
                     except Exception as e:
                         logger.warning(f"Calendar API call failed: {e}")
@@ -519,15 +557,21 @@ class CommunicationService:
                                 alt.attach(MIMEText(plain_body, "plain", "utf-8"))
                                 alt.attach(MIMEText(html_body, "html", "utf-8"))
 
-                                cal_part = MIMEText(ics_content, "calendar; method=REQUEST; charset=UTF-8")
-                                cal_part.add_header("Content-Class", "urn:content-classes:calendarmessage")
+                                cal_part = MIMEText(
+                                    ics_content, "calendar; method=REQUEST; charset=UTF-8"
+                                )
+                                cal_part.add_header(
+                                    "Content-Class", "urn:content-classes:calendarmessage"
+                                )
                                 alt.attach(cal_part)
                                 msg.attach(alt)
 
                                 attach = MIMEBase("application", "ics", name="invite.ics")
                                 attach.set_payload(ics_content.encode("utf-8"))
                                 encoders.encode_base64(attach)
-                                attach.add_header("Content-Disposition", "attachment; filename=\"invite.ics\"")
+                                attach.add_header(
+                                    "Content-Disposition", 'attachment; filename="invite.ics"'
+                                )
                                 msg.attach(attach)
 
                                 raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
@@ -545,10 +589,14 @@ class CommunicationService:
                                 ):
                                     if resp.status == 200:
                                         sent_to.append(att)
-                                        logger.info(f"Dispatched iCalendar Google Meet invitation to {att}")
+                                        logger.info(
+                                            f"Dispatched iCalendar Google Meet invitation to {att}"
+                                        )
                                     else:
                                         err_text = await resp.text()
-                                        logger.warning(f"Gmail API failed for {att}: {resp.status} {err_text}")
+                                        logger.warning(
+                                            f"Gmail API failed for {att}: {resp.status} {err_text}"
+                                        )
                                         failed_to.append(att)
                             except Exception as e:
                                 logger.error(f"Error sending invite to {att}: {e}")

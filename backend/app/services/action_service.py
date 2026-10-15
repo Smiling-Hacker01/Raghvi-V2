@@ -164,8 +164,9 @@ class ActionService:
                         if res.get("meet_link"):
                             updated_params["meet_link"] = res["meet_link"]
                         updated_params["calendar_created"] = res.get("calendar_created", False)
-                        updated_params["sent_to"] = res.get("sent_to", [])
-                        updated_params["requires_calendar_reauth"] = res.get("requires_calendar_reauth", False)
+                        updated_params["requires_calendar_reauth"] = res.get(
+                            "requires_calendar_reauth", False
+                        )
                         proposal.parameters = updated_params
                     proposal.status = "executed"
                 except Exception as e:
