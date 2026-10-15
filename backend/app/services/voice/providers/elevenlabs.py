@@ -120,9 +120,34 @@ class ElevenLabsProvider(VoiceProvider):
             import re
 
             # ── Language detection ────────────────────────────────────────────
-            # Detect Devanagari (Hindi) script — triggers multilingual phonemes
+            # Detect Devanagari (Hindi) script, Hinglish vocabulary, or explicit language code
             has_devanagari = any("\u0900" <= ch <= "\u097f" for ch in request.text)
-            language_code = "hi" if has_devanagari else "en"
+            hinglish_keywords = {
+                "main", "mein", "tumahri", "aap", "kaise", "hai", "rhi", "hoon",
+                "kr", "namaste", "shukriya", "kya", "theek", "baat", "bol", "kar",
+                "rahi", "raha", "tum", "mera", "meri", "hum", "yaar", "bhai"
+            }
+            words = set(re.findall(r"\b[a-zA-Z]+\b", request.text.lower()))
+            is_hindi = (
+                has_devanagari
+                or (request.language and request.language.lower().startswith("hi"))
+                or bool(words & hinglish_keywords)
+            )
+            language_code = "hi" if is_hindi else "en"
+
+            # Always use multilingual_v2 for Hindi/Hinglish to avoid American phonetic reading
+            model_id = self.model_id
+            if is_hindi or model_id in ["eleven_monolingual_v1", "eleven_multilingual_v1"]:
+                model_id = "eleven_multilingual_v2"
+
+            # ── Pronunciation Normalization ──────────────────────────────────
+            # Normalize 'Raghvi' / 'raghvi' so TTS synthesizers pronounce with
+            # an authentic open 'aa' sound (Raagh-vee / राघवी) instead of English 'rag-vi'.
+            normalized_text = request.text
+            if is_hindi:
+                normalized_text = re.sub(r"\b[Rr]a+gh+vi\b", "राघवी", normalized_text)
+            else:
+                normalized_text = re.sub(r"\b[Rr]aghvi\b", "Raaghvi", normalized_text)
 
             # ── Emotion-driven voice settings ─────────────────────────────────
             emotion_key = (request.emotion or "neutral").lower().strip()
@@ -131,12 +156,13 @@ class ElevenLabsProvider(VoiceProvider):
             )
 
             payload = {
-                "text": request.text,
-                "model_id": self.model_id,
+                "text": normalized_text,
+                "model_id": model_id,
                 "language_code": language_code,
                 "voice_settings": {
                     **voice_settings,
                     "use_speaker_boost": True,  # adds warmth and vocal presence
+                    "speed": 0.85,  # calm, clear, articulate pacing (prevents rushed speech)
                 },
             }
 

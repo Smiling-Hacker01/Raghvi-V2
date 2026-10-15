@@ -1,10 +1,21 @@
 """Voice management and synthesis endpoints."""
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -234,12 +245,15 @@ async def upload_voice_sample(
             session=session,
         )
 
-        logger.info(f"Voice sample uploaded for user {current_user.id}: {voice_name}")
+        # Generate temporary presigned URL for direct browser playback (valid for 24h)
+        s3_key = s3_service._extract_key_from_url(s3_url)
+        presigned_sample_url = await s3_service.generate_presigned_url(s3_key, expiration=86400)
 
         return {
             "voice_id": str(voice.id),
             "voice_name": voice.voice_name,
             "audio_sample_url": s3_url,
+            "presigned_sample_url": presigned_sample_url,
             "status": "uploaded",
             "message": (
                 "Voice sample uploaded. Call /voices/{voice_id}/clone to create voice clone."
@@ -285,7 +299,6 @@ async def clone_voice(
 
         # Mark voice as active/ready custom voice
         voice.voice_type = "custom"
-        voice.is_available = True
         voice.is_active = True
         await session.commit()
 
@@ -306,6 +319,73 @@ async def clone_voice(
             "status": "fallback_standard",
             "message": "Personalized voice cloning failed; safely fell back to standard voice.",
         }
+
+
+@router.get("/{voice_id}/sample")
+async def get_voice_sample(
+    voice_id: UUID,
+    current_user: CurrentUser,
+    session: DbSession,
+) -> dict:
+    """Get temporary presigned playback URL for voice sample."""
+    voice = await VoiceService.get_user_voice(str(voice_id), current_user.id, session)
+    if not voice or not voice.audio_sample_url:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Voice sample not found",
+        )
+
+    s3_service = S3Service()
+    try:
+        s3_key = s3_service._extract_key_from_url(voice.audio_sample_url)
+        presigned_url = await s3_service.generate_presigned_url(s3_key, expiration=86400)
+        return {
+            "voice_id": str(voice.id),
+            "voice_name": voice.voice_name,
+            "sample_url": presigned_url,
+        }
+    except Exception as e:
+        logger.error(f"Failed to generate presigned sample URL: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate sample URL",
+        ) from e
+
+
+@router.get("/{voice_id}/stream")
+@router.get("/{voice_id}/audio")
+async def stream_voice_sample(
+    voice_id: UUID,
+    current_user: CurrentUser,
+    session: DbSession,
+) -> StreamingResponse:
+    """Stream audio sample directly from storage through the backend."""
+    voice = await VoiceService.get_user_voice(str(voice_id), current_user.id, session)
+    if not voice or not voice.audio_sample_url:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Voice sample not found",
+        )
+
+    s3_service = S3Service()
+    try:
+        s3_key = s3_service._extract_key_from_url(voice.audio_sample_url)
+        s3_obj = s3_service.get_voice_stream(s3_key)
+        content_type = s3_obj.get("ContentType", "audio/mpeg")
+        return StreamingResponse(
+            s3_obj["Body"],
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f"inline; filename={voice.voice_name}.mp3",
+                "Accept-Ranges": "bytes",
+            },
+        )
+    except Exception as e:
+        logger.error(f"Failed to stream voice sample: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to stream voice sample",
+        ) from e
 
 
 @router.post("/{voice_id}/set-default")
@@ -415,14 +495,17 @@ async def synthesize_speech(
     text: Annotated[str, Form()],
     voice_id: Annotated[str | None, Form()] = None,
     language: Annotated[str, Form()] = "en",
-) -> dict:
+    response_format: Annotated[
+        str, Query(alias="format", description="Output format: 'json' or 'audio'")
+    ] = "json",
+) -> Any:
     """
     Synthesize speech from text using voice providers with automatic fallback.
 
     If voice_id is provided, uses that voice. Otherwise, uses user's default voice
     or a system default voice.
 
-    Returns audio data as base64 encoded string that can be played in the browser.
+    Returns audio data as base64 JSON or playable binary audio if format=audio.
     """
     import base64
 
@@ -463,8 +546,19 @@ async def synthesize_speech(
 
         response = await adapter.synthesize_speech(request)
 
-        # Return audio data
-        # Option 1: Return as base64 JSON (easy for web)
+        # Option 1: Return as playable binary audio directly in Postman / browser
+        if response_format == "audio":
+            media_type = f"audio/{response.audio_format}" if response.audio_format in ["mp3", "wav", "ogg"] else "audio/mpeg"
+            ext = response.audio_format if response.audio_format in ["mp3", "wav", "ogg"] else "mp3"
+            return Response(
+                content=response.audio_data,
+                media_type=media_type,
+                headers={
+                    "Content-Disposition": f"inline; filename=raghvi_speech.{ext}",
+                },
+            )
+
+        # Option 2: Return as base64 JSON for mobile apps / frontend
         audio_base64 = base64.b64encode(response.audio_data).decode("utf-8")
 
         return {
@@ -475,17 +569,8 @@ async def synthesize_speech(
             "audio_base64": audio_base64,
             "audio_format": response.audio_format,
             "sample_rate": 44100,
-            "duration_estimate": len(text) / 10,  # Rough estimate
+            "duration_estimate": len(text) / 10,
         }
-
-        # Option 2: Return as binary audio file (uncomment if needed)
-        # return Response(
-        #     content=response.audio_data,
-        #     media_type="audio/wav",
-        #     headers={
-        #         "Content-Disposition": f"attachment; filename=raghvi_speech.wav"
-        #     }
-        # )
 
     except HTTPException:
         raise

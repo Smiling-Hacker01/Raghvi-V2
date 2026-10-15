@@ -1,4 +1,3 @@
-
 """Integration tests for Voice API endpoints and user voice settings."""
 
 from io import BytesIO
