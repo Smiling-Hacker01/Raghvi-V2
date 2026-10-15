@@ -278,7 +278,7 @@ async def schedule_meeting(
         "meet_link": meet_link,
         "action_required": (
             f"Action proposal created and awaiting confirmation. "
-            f"Call POST /actions/{proposal.id}/confirm with {{\"confirmed\": true}} "
+            f'Call POST /actions/{proposal.id}/confirm with {{"confirmed": true}} '
             "to dispatch invitation emails, or pass auto_confirm=true."
         ),
     }

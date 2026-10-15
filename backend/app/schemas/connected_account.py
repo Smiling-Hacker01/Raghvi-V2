@@ -102,4 +102,3 @@ class GoogleOAuthExchangeRequest(BaseModel):
     redirect_uri: str | None = Field(
         default=None, description="Redirect URI matching client request"
     )
-

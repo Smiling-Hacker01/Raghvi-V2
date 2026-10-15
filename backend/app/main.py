@@ -86,4 +86,3 @@ async def get_provider_presets_alias():
     from app.services.connected_account_service import ConnectedAccountService
 
     return ConnectedAccountService.get_presets()
-

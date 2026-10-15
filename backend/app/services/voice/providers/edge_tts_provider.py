@@ -79,9 +79,30 @@ class EdgeTTSProvider(VoiceProvider):
             # ── Language & Script Detection ───────────────────────────────────
             has_devanagari = any("\u0900" <= ch <= "\u097f" for ch in request.text)
             hinglish_keywords = {
-                "main", "mein", "tumahri", "aap", "kaise", "hai", "rhi", "hoon",
-                "kr", "namaste", "shukriya", "kya", "theek", "baat", "bol", "kar",
-                "rahi", "raha", "tum", "mera", "meri", "hum", "yaar", "bhai"
+                "main",
+                "mein",
+                "tumahri",
+                "aap",
+                "kaise",
+                "hai",
+                "rhi",
+                "hoon",
+                "kr",
+                "namaste",
+                "shukriya",
+                "kya",
+                "theek",
+                "baat",
+                "bol",
+                "kar",
+                "rahi",
+                "raha",
+                "tum",
+                "mera",
+                "meri",
+                "hum",
+                "yaar",
+                "bhai",
             }
             words = set(re.findall(r"\b[a-zA-Z]+\b", request.text.lower()))
             is_hindi = (

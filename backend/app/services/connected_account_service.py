@@ -580,4 +580,3 @@ class ConnectedAccountService:
             ),
             session=session,
         )
-

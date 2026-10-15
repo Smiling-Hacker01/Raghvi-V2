@@ -179,9 +179,7 @@ async def start_google_oauth_browser(
 
     target_user_id = user_id
     if not target_user_id:
-        user = await session.scalar(
-            select(User).where(User.email.ilike("%vishal%"))
-        )
+        user = await session.scalar(select(User).where(User.email.ilike("%vishal%")))
         if not user:
             user = await session.scalar(select(User))
         if user:
@@ -319,4 +317,3 @@ async def exchange_google_oauth_code(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to exchange Google OAuth code: {str(e)}",
         ) from e
-

@@ -102,7 +102,9 @@ class Settings(BaseSettings):
     # Google OAuth 2.0 (1-Click Gmail Sync)
     google_oauth_client_id: str = ""
     google_oauth_client_secret: str = ""
-    google_oauth_redirect_uri: str = "http://localhost:8000/connected-accounts/oauth/google/callback"
+    google_oauth_redirect_uri: str = (
+        "http://localhost:8000/connected-accounts/oauth/google/callback"
+    )
 
 
 @lru_cache(maxsize=1)

@@ -387,10 +387,12 @@ class CommunicationService:
         if sender_email and "@" in sender_email and sender_email not in recipients_to_email:
             recipients_to_email.append(sender_email)
 
-        attendee_ics = "\r\n".join([
-            f"ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN={att}:mailto:{att}"
-            for att in recipients_to_email
-        ])
+        attendee_ics = "\r\n".join(
+            [
+                f"ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN={att}:mailto:{att}"
+                for att in recipients_to_email
+            ]
+        )
 
         desc_ics = (
             f"DESCRIPTION:{description or title}\\n\\n"
@@ -448,10 +450,10 @@ class CommunicationService:
             f'<div style="{box_style}">'
             f'<h2 style="color: #1a73e8; margin-top: 0;">{title}</h2>'
             f'<p style="color: #3c4043; font-size: 15px; margin: 4px 0 16px 0;">'
-            f'<strong>When:</strong> {date} at {start_time} (IST)</p>'
+            f"<strong>When:</strong> {date} at {start_time} (IST)</p>"
             f'<div style="margin: 24px 0;">'
             f'<a href="{meet_link}" target="_blank" style="{btn_style}">Join with Google Meet</a>'
-            f'</div>'
+            f"</div>"
             f'<p style="font-size: 13px; color: #5f6368;">'
             f'Meeting link: <a href="{meet_link}">{meet_link}</a></p>'
             f'<p style="font-size: 13px; color: #5f6368;">Details: {description or "N/A"}</p>'
@@ -459,7 +461,7 @@ class CommunicationService:
             f'<p style="font-size: 12px; color: #70757a;">Attendees: {attendees_html}</p>'
             f'<p style="font-size: 11px; color: #9aa0a6;">'
             f'Add to your calendar by clicking "Yes" above or opening the invite.ics file.</p>'
-            f'</div>'
+            f"</div>"
         )
 
         if oauth_account:
