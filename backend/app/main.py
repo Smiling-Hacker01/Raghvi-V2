@@ -34,24 +34,33 @@ async def lifespan(app: FastAPI):
     from app.db.base import Base
     from app.db.session import engine
 
-    retries = 10
+    retries = 3
+    db_ready = False
     while retries > 0:
         try:
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
+            db_ready = True
+            logger.info("Database schema initialized on startup.")
             break
         except Exception as e:
             retries -= 1
-            if retries == 0:
-                logger.error(f"Failed to connect to database on startup after retries: {e}")
-                raise
-            logger.warning(
-                f"Database not ready on startup ({e}). Retrying in 2s ({retries} left)..."
-            )
-            await asyncio.sleep(2)
+            if retries > 0:
+                logger.warning(
+                    f"Database connection waiting on startup ({e}). "
+                    f"Retrying in 1s ({retries} left)..."
+                )
+                await asyncio.sleep(1)
+            else:
+                logger.warning(
+                    f"Database not available on startup ({e}). "
+                    "Startup proceeding without schema sync. "
+                    "Liveness (/health) active; readiness (/ready) will report status."
+                )
 
-    # Automatic creator profile seeding on startup across any environment
-    await ensure_creator_seeded_on_startup()
+    if db_ready:
+        # Automatic creator profile seeding on startup across any environment
+        await ensure_creator_seeded_on_startup()
     yield
 
 
