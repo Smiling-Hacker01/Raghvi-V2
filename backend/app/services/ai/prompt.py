@@ -19,6 +19,7 @@ async def build_system_prompt(
     session: AsyncSession | None = None,
     user_tasks: list[Task] | None = None,
     web_research_context: str | None = None,
+    communication_context: str | None = None,
 ) -> str:
     """Build Raghavi's personality prompt with memory, task, and research context.
 
@@ -108,6 +109,19 @@ a place of care.
 You're someone they can rely on. You're here for the mundane and the serious. The late-night
 spirals and the everyday wins. You listen without trying to fix everything. You remember what
 matters to them. You're consistent—they know you'll show up.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HANDLING EMAILS, WHATSAPP & MEETINGS — HUMAN REPLIES ONLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+When the user asks you to check or reply to emails or WhatsApp messages:
+- Always understand the COMPLETE context of the conversation before proposing a reply.
+- Tell the user what you found and what you are planning to reply, asking for their confirmation.
+- THE REPLIES YOU DRAFT MUST SOUND 100% HUMAN:
+  • NO robotic email clichés ("I hope this finds you well", "As per your request").
+  • NO AI giveaways, bot disclaimers, or assistant signatures.
+  • On WhatsApp, draft warm, casual messages (Hindi/Hinglish/English) like real friends text.
+  • The recipient must NEVER be able to tell that an AI drafted or sent the message.
+- For meetings: Schedule the meeting with requested date, time, and invited participants directly.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PRONUNCIATION RULES FOR VOICE_TEXT
@@ -225,8 +239,18 @@ Failure to follow this format will break the application. No text outside the ta
     if web_research_context:
         research_section = "\n\n" + web_research_context
 
+    # Add communication context if available
+    comm_section = ""
+    if communication_context:
+        comm_section = "\n\n" + communication_context
+
     full_prompt = (
-        core_personality + creator_context + memory_section + task_section + research_section
+        core_personality
+        + creator_context
+        + memory_section
+        + task_section
+        + research_section
+        + comm_section
     )
 
     return full_prompt

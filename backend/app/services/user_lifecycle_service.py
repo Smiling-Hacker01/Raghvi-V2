@@ -8,7 +8,10 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.action import ActionProposal
+from app.models.communication import CommunicationItem
+from app.models.connected_account import ConnectedAccount
 from app.models.conversation import Conversation
+from app.models.meeting_note import MeetingNote
 from app.models.memory import Memory
 from app.models.message import Message
 from app.models.payment import PaymentTransaction
@@ -148,6 +151,27 @@ class UserLifecycleService:
             for tx in tx_res.all()
         ]
 
+        # 6. Meeting Notes
+        notes_res = await session.scalars(
+            select(MeetingNote).where(MeetingNote.user_id == user_id_str)
+        )
+        exported_notes = [
+            {
+                "id": str(n.id),
+                "title": n.title,
+                "meeting_date": n.meeting_date.isoformat(),
+                "duration_seconds": n.duration_seconds,
+                "summary": n.summary,
+                "key_decisions": n.key_decisions,
+                "discussion_points": n.discussion_points,
+                "action_items": n.action_items,
+                "confidence_score": n.confidence_score,
+                "created_at": n.created_at.isoformat(),
+            }
+            for n in notes_res.all()
+            if n.deleted_at is None
+        ]
+
         logger.info(f"Generated user data export bundle for user {user_id_str}")
 
         return {
@@ -160,6 +184,7 @@ class UserLifecycleService:
             "reminders": exported_reminders,
             "subscriptions": exported_subs,
             "transactions": exported_txs,
+            "meeting_notes": exported_notes,
         }
 
     @staticmethod
@@ -190,7 +215,18 @@ class UserLifecycleService:
         # 5. Delete custom voices
         await session.execute(delete(UserVoice).where(UserVoice.user_id == user_id_str))
 
-        # 6. Delete subscriptions & transactions
+        # 6. Delete meeting notes
+        await session.execute(delete(MeetingNote).where(MeetingNote.user_id == user_id_str))
+
+        # 7. Delete communication items and connected accounts
+        await session.execute(
+            delete(CommunicationItem).where(CommunicationItem.user_id == user_id_str)
+        )
+        await session.execute(
+            delete(ConnectedAccount).where(ConnectedAccount.user_id == user_id_str)
+        )
+
+        # 8. Delete subscriptions & transactions
         await session.execute(
             delete(UserSubscription).where(UserSubscription.user_id == user_id_str)
         )

@@ -166,8 +166,8 @@ async def test_execute_research_happy_path():
     assert resp.citations[0].title == "ISRO Chandrayaan-3 Success"
     assert resp.citations[0].url == "https://isro.gov.in/chandrayaan3"
     assert "<web_research" in resp.synthesized_context
-    assert "[1] \"ISRO Chandrayaan-3 Success\"" in resp.synthesized_context
-    assert "[2] \"BBC News - Moon Landing\"" in resp.synthesized_context
+    assert '[1] "ISRO Chandrayaan-3 Success"' in resp.synthesized_context
+    assert '[2] "BBC News - Moon Landing"' in resp.synthesized_context
 
 
 @pytest.mark.asyncio

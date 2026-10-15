@@ -1,5 +1,6 @@
 """Chat service - business logic for chat operations."""
 
+import asyncio
 import logging
 import re
 from uuid import UUID
@@ -123,7 +124,6 @@ class ChatService:
         Raises:
             ValueError: If content invalid
         """
-        import asyncio
 
         # Validate
         if not user_message_content or not user_message_content.strip():
@@ -132,49 +132,37 @@ class ChatService:
         if len(user_message_content) > 5000:
             raise ValueError("Message exceeds maximum length")
 
-        # OPTIMIZATION 1: Parallelize conversation + memory retrieval + active task retrieval
-        conversation_task = ChatService.get_or_create_conversation(user_id, session)
-
-        retriever = get_retriever(top_k=9)
-        memories_task = retriever.retrieve(
-            user_id=user_id,
-            query=user_message_content,
-            session=session,
-        )
-
+        # Web research classification (external network/mock)
         from app.services.research import ResearchRequest, get_research_service
         from app.services.task_service import TaskService
 
-        tasks_task = TaskService.get_active_tasks(
-            user_id=str(user_id),
-            session=session,
-        )
-
-        # Web research classification
         research_service = get_research_service()
         needs_search, search_query = research_service.classify_query(user_message_content)
 
         research_task = None
         if needs_search:
-            research_task = research_service.execute_research(
-                ResearchRequest(query=search_query, max_results=4)
+            research_task = asyncio.create_task(
+                research_service.execute_research(
+                    ResearchRequest(query=search_query, max_results=4)
+                )
             )
 
-        # Wait for all in parallel
-        if research_task:
-            conversation, relevant_memories, active_tasks, research_resp = await asyncio.gather(
-                conversation_task,
-                memories_task,
-                tasks_task,
-                research_task,
-            )
-        else:
-            conversation, relevant_memories, active_tasks = await asyncio.gather(
-                conversation_task,
-                memories_task,
-                tasks_task,
-            )
-            research_resp = None
+        # Database session queries executed sequentially to maintain session safety
+        conversation = await ChatService.get_or_create_conversation(user_id, session)
+
+        retriever = get_retriever(top_k=9)
+        relevant_memories = await retriever.retrieve(
+            user_id=user_id,
+            query=user_message_content,
+            session=session,
+        )
+
+        active_tasks = await TaskService.get_active_tasks(
+            user_id=str(user_id),
+            session=session,
+        )
+
+        research_resp = await research_task if research_task else None
 
         logger.info(
             f"Chat for user {user_id}: retrieved {len(relevant_memories)} memories, "
@@ -182,12 +170,151 @@ class ChatService:
             f"research={bool(research_resp and research_resp.performed_search)}"
         )
 
-        # OPTIMIZATION 2: Build system prompt (with cached creator profile, active tasks & research)
+        # Autonomous Communication Context (Email, WhatsApp, Meetings)
+        from app.services.communication_service import CommunicationService
+
+        comm_intent = CommunicationService.parse_communication_intent(user_message_content)
+        comm_context_str = None
+
+        if comm_intent:
+            try:
+                intent_type = comm_intent.get("type")
+                if intent_type == "check_email":
+                    acc_label = comm_intent.get("account_label")
+                    emails = await CommunicationService.get_emails(
+                        user_id=str(user_id),
+                        sender_query=comm_intent.get("sender"),
+                        account_label_query=acc_label,
+                        unread_only=comm_intent.get("unread_only", False),
+                        session=session,
+                    )
+                    if emails:
+                        items = [
+                            f"- [{e.account_label or 'Mail'}] {e.sender_name}\n  {e.body[:60]}"
+                            for e in emails[:4]
+                        ]
+                        comm_context_str = (
+                            f"[COMMUNICATION STATUS: EMAILS FOUND]\n"
+                            f"Found {len(emails)} emails (target account: {acc_label or 'all'}):\n"
+                            + "\n".join(items)
+                        )
+                    else:
+                        target_str = f" in {acc_label} account" if acc_label else ""
+                        comm_context_str = (
+                            f"[COMMUNICATION STATUS: No new/matching emails found{target_str}]"
+                        )
+
+                elif intent_type == "reply_email":
+                    acc_label = comm_intent.get("account_label")
+                    emails = await CommunicationService.get_emails(
+                        user_id=str(user_id),
+                        account_label_query=acc_label,
+                        limit=1,
+                        session=session,
+                    )
+                    if emails:
+                        target = emails[0]
+                        thread = await CommunicationService.get_email_thread(
+                            user_id=str(user_id),
+                            email_id=target.id,
+                            session=session,
+                        )
+                        draft = CommunicationService.draft_human_email_reply(
+                            target_email=target,
+                            thread=thread,
+                            user_instructions=comm_intent.get("query"),
+                        )
+                        comm_context_str = (
+                            f"[COMMUNICATION STATUS: EMAIL REPLY DRAFTED]\n"
+                            f"Account: {target.account_label or 'Default'} ({target.recipient})\n"
+                            f"Email from: {target.sender_name} <{target.sender}>\n"
+                            f"Subject: {target.subject}\n"
+                            f"Original content: {target.body}\n"
+                            f"Prepared completely human reply:\n{draft}\n"
+                            f"Action: Tell user what was asked and what you are replying."
+                        )
+                    else:
+                        comm_context_str = "[COMMUNICATION STATUS: No email found to reply to]"
+
+                elif intent_type == "check_whatsapp":
+                    sender = comm_intent.get("sender")
+                    acc_label = comm_intent.get("account_label")
+                    msgs = await CommunicationService.get_whatsapp_messages(
+                        user_id=str(user_id),
+                        sender_name=sender,
+                        account_label_query=acc_label,
+                        session=session,
+                    )
+                    if msgs:
+                        m_list = [
+                            f"- [{m.account_label or 'WhatsApp'}] {m.sender_name}: '{m.body}'"
+                            for m in msgs[:4]
+                        ]
+                        target_acc = acc_label or "all accounts"
+                        comm_context_str = (
+                            f"[COMMUNICATION STATUS: WHATSAPP MESSAGES FOUND]\n"
+                            f"Messages from {sender or 'contacts'} ({target_acc}):\n"
+                            + "\n".join(m_list)
+                        )
+                    else:
+                        contact_label = sender or "contacts"
+                        comm_context_str = (
+                            f"[COMMUNICATION STATUS: No new messages from {contact_label}]"
+                        )
+
+                elif intent_type == "reply_whatsapp":
+                    sender = comm_intent.get("sender")
+                    acc_label = comm_intent.get("account_label")
+                    msgs = await CommunicationService.get_whatsapp_messages(
+                        user_id=str(user_id),
+                        sender_name=sender,
+                        account_label_query=acc_label,
+                        session=session,
+                    )
+                    if msgs:
+                        draft = CommunicationService.draft_human_whatsapp_reply(
+                            recent_messages=msgs,
+                            user_instructions=comm_intent.get("instructions"),
+                        )
+                        target = msgs[0]
+                        comm_context_str = (
+                            f"[COMMUNICATION STATUS: WHATSAPP REPLY DRAFTED]\n"
+                            f"Account: {target.account_label or 'WhatsApp'}\n"
+                            f"Contact: {target.sender_name}\n"
+                            f"Their message: {target.body}\n"
+                            f"Prepared human reply: '{draft}'\n"
+                            f"Action: Tell user what was received and what reply is prepared."
+                        )
+                    else:
+                        contact_name = sender or "contact"
+                        comm_context_str = (
+                            f"[COMMUNICATION STATUS: No messages from {contact_name} to reply to]"
+                        )
+
+                elif intent_type == "schedule_meeting":
+                    proposal = await CommunicationService.schedule_meeting_action(
+                        user_id=str(user_id),
+                        title=comm_intent.get("title", "Meeting"),
+                        date=comm_intent.get("date", "today"),
+                        start_time=comm_intent.get("time", "3:00 PM"),
+                        attendees=comm_intent.get("attendees", []),
+                        session=session,
+                    )
+                    comm_context_str = (
+                        f"[COMMUNICATION STATUS: MEETING SCHEDULED]\n"
+                        f"Created proposal: {proposal.description}.\n"
+                        f"Action: Warmly confirm meeting and attendee invites are prepared."
+                    )
+            except Exception as e:
+                logger.warning(f"Communication processing error: {e}")
+
+        # OPTIMIZATION 2: Build system prompt (with memories, tasks, research & comms)
         system_prompt = await build_system_prompt(
             user_memories=relevant_memories,
             session=session,
             user_tasks=active_tasks,
             web_research_context=research_resp.synthesized_context if research_resp else None,
+            communication_context=comm_context_str,
         )
 
         # Get recent message history for context window

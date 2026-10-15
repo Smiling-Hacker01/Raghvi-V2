@@ -165,7 +165,7 @@ class ResearchService:
 
         for cit in citations:
             context_parts.append(
-                f"[{cit.id}] \"{cit.title}\"\nURL: {cit.url}\nExcerpt: {cit.snippet}"
+                f'[{cit.id}] "{cit.title}"\nURL: {cit.url}\nExcerpt: {cit.snippet}'
             )
 
         context_parts.append("</web_research>")
