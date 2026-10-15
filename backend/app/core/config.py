@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     nvidia_model: str = "fastpitch"
 
     # Voice provider priority (comma-separated, will try in order)
-    voice_provider_priority: str = "elevenlabs,cartesia,deepgram,coqui_xtts"
+    voice_provider_priority: str = "edge_tts,elevenlabs,cartesia,deepgram,coqui_xtts"
 
     # Voice synthesis settings
     voice_sample_rate: int = 44100
@@ -90,6 +90,19 @@ class Settings(BaseSettings):
 
     # Redis cache
     redis_voice_cache_ttl: int = 30 * 60  # 30 minutes
+
+    # Real Email Integration (IMAP / SMTP)
+    email_imap_host: str = "imap.gmail.com"
+    email_imap_port: int = 993
+    email_smtp_host: str = "smtp.gmail.com"
+    email_smtp_port: int = 465
+    email_user: str = ""
+    email_password: str = ""
+
+    # Google OAuth 2.0 (1-Click Gmail Sync)
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: str = ""
+    google_oauth_redirect_uri: str = "http://localhost:8000/connected-accounts/oauth/google/callback"
 
 
 @lru_cache(maxsize=1)
