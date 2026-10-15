@@ -228,7 +228,14 @@ async def test_google_oauth_http_calls():
     mock_session.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("aiohttp.ClientSession", return_value=mock_session):
+    with (
+        patch("app.services.google_oauth_service.get_settings") as mock_settings,
+        patch("aiohttp.ClientSession", return_value=mock_session),
+    ):
+        mock_settings.return_value.google_oauth_client_id = "test_client_id"
+        mock_settings.return_value.google_oauth_client_secret = "test_client_secret"
+        mock_settings.return_value.google_oauth_redirect_uri = "http://localhost:8000/callback"
+
         tokens = await GoogleOAuthService.exchange_auth_code("code_abc")
         assert tokens["access_token"] == "ya29.mock_token"
 
