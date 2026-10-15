@@ -100,16 +100,22 @@ class ReminderService:
     ) -> list[Reminder]:
         """Get reminders that should be sent now.
 
+        Filters out reminders for tasks that are completed or deleted.
+
         Returns:
             List of unsent reminders past their reminder_time
         """
         now = datetime.now(UTC).replace(tzinfo=None)
 
         reminders = await session.scalars(
-            select(Reminder).where(
+            select(Reminder)
+            .join(Task, Reminder.task_id == Task.id)
+            .where(
                 and_(
                     ~Reminder.sent,
                     Reminder.reminder_time <= now,
+                    Task.status != TaskStatus.COMPLETED,
+                    Task.deleted_at.is_(None),
                 )
             )
         )
@@ -132,6 +138,62 @@ class ReminderService:
         await session.commit()
 
         logger.info(f"Reminder {reminder.id} marked as sent")
+
+    @staticmethod
+    async def snooze_reminder(
+        reminder_id: str | UUID,
+        minutes: int,
+        session: AsyncSession,
+    ) -> Reminder | None:
+        """Snooze a reminder by specified minutes.
+
+        Args:
+            reminder_id: Reminder UUID
+            minutes: Number of minutes to snooze
+            session: Database session
+
+        Returns:
+            Updated Reminder or None
+        """
+        rem_uuid = UUID(str(reminder_id)) if not isinstance(reminder_id, UUID) else reminder_id
+        reminder = await session.get(Reminder, rem_uuid)
+        if not reminder:
+            return None
+
+        now = datetime.now(UTC).replace(tzinfo=None)
+        reminder.reminder_time = now + timedelta(minutes=minutes)
+        reminder.sent = False
+        reminder.sent_at = None
+        await session.commit()
+
+        logger.info(f"Snoozed reminder {reminder_id} for {minutes} minutes")
+        return reminder
+
+    @staticmethod
+    async def dismiss_reminder(
+        reminder_id: str | UUID,
+        session: AsyncSession,
+    ) -> bool:
+        """Dismiss a reminder without triggering further notifications.
+
+        Args:
+            reminder_id: Reminder UUID
+            session: Database session
+
+        Returns:
+            True if dismissed, False if not found
+        """
+        rem_uuid = UUID(str(reminder_id)) if not isinstance(reminder_id, UUID) else reminder_id
+        reminder = await session.get(Reminder, rem_uuid)
+        if not reminder:
+            return False
+
+        reminder.sent = True
+        reminder.sent_at = datetime.now(UTC).replace(tzinfo=None)
+        await session.commit()
+
+        logger.info(f"Dismissed reminder {reminder_id}")
+        return True
 
     @staticmethod
     async def get_user_overdue_tasks(

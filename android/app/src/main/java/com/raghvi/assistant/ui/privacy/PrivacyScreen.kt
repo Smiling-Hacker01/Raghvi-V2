@@ -15,8 +15,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -44,6 +47,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun PrivacyScreen(
     onNavigateBack: () -> Unit = {},
+    onNavigateToTab: ((String) -> Unit)? = null,
     onAccountDeleted: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
@@ -65,13 +69,24 @@ fun PrivacyScreen(
                 title = { Text("Privacy & Account") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Text("←", style = MaterialTheme.typography.titleLarge)
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
                 )
             )
+        },
+        bottomBar = {
+            if (onNavigateToTab != null) {
+                com.raghvi.assistant.ui.components.RaghviBottomBar(
+                    currentDestination = "privacy",
+                    onNavigate = onNavigateToTab
+                )
+            }
         }
     ) { paddingValues ->
         Column(

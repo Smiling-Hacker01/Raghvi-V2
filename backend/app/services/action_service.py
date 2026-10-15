@@ -13,7 +13,15 @@ from app.models.action import ActionProposal
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_ACTIONS = {"draft_email", "open_maps", "open_app"}
+SUPPORTED_ACTIONS = {
+    "draft_email",
+    "send_email",
+    "open_maps",
+    "open_app",
+    "schedule_meeting",
+    "create_calendar_event",
+    "send_whatsapp_message",
+}
 
 
 class ActionService:
@@ -26,10 +34,26 @@ class ActionService:
             actions_str = ", ".join(sorted(SUPPORTED_ACTIONS))
             raise ValueError(f"Unsupported action type '{action_type}'. Supported: {actions_str}")
 
-        if action_type == "draft_email":
+        if action_type in ("draft_email", "send_email"):
             recipient = parameters.get("recipient", "")
             if recipient and ("@" not in recipient or "." not in recipient):
                 raise ValueError("Recipient must be a valid email address")
+
+        elif action_type in ("schedule_meeting", "create_calendar_event"):
+            title = parameters.get("title") or parameters.get("summary")
+            if not title or not str(title).strip():
+                raise ValueError("Meeting or calendar event requires a title")
+            date_val = parameters.get("date") or parameters.get("start_time")
+            if not date_val:
+                raise ValueError("Meeting or calendar event requires a date or start_time")
+
+        elif action_type == "send_whatsapp_message":
+            recipient = parameters.get("recipient") or parameters.get("phone")
+            message = parameters.get("message") or parameters.get("text")
+            if not recipient or not str(recipient).strip():
+                raise ValueError("WhatsApp action requires a recipient or phone number")
+            if not message or not str(message).strip():
+                raise ValueError("WhatsApp action requires a non-empty message")
 
         elif action_type == "open_maps":
             destination = parameters.get("destination") or parameters.get("address")
@@ -118,6 +142,35 @@ class ActionService:
         if confirmed:
             proposal.status = "confirmed"
             proposal.confirmed_at = now
+
+            # Automated execution hook for meeting proposals
+            if proposal.action_type == "schedule_meeting":
+                try:
+                    from app.services.communication_service import CommunicationService
+
+                    params = proposal.parameters or {}
+                    res = await CommunicationService.send_meeting_invitations(
+                        user_id=str(user_id),
+                        title=params.get("title", "Meeting"),
+                        date=params.get("date", ""),
+                        start_time=params.get("start_time", ""),
+                        attendees=params.get("attendees", []),
+                        description=params.get("description"),
+                        meet_link=params.get("meet_link"),
+                        session=session,
+                    )
+                    if res:
+                        updated_params = dict(params)
+                        if res.get("meet_link"):
+                            updated_params["meet_link"] = res["meet_link"]
+                        updated_params["calendar_created"] = res.get("calendar_created", False)
+                        updated_params["requires_calendar_reauth"] = res.get(
+                            "requires_calendar_reauth", False
+                        )
+                        proposal.parameters = updated_params
+                    proposal.status = "executed"
+                except Exception as e:
+                    logger.error(f"Failed to dispatch invites on meeting confirmation: {e}")
         else:
             proposal.status = "cancelled"
 
@@ -125,3 +178,28 @@ class ActionService:
         await session.refresh(proposal)
         logger.info(f"Action proposal {proposal.id} status updated to {proposal.status}")
         return proposal
+
+    @staticmethod
+    async def list_proposals(
+        user_id: str,
+        status_filter: str | None,
+        session: AsyncSession,
+    ) -> list[ActionProposal]:
+        """List all action proposals for user, updating expired ones."""
+        query = select(ActionProposal).where(ActionProposal.user_id == str(user_id))
+        if status_filter:
+            query = query.where(ActionProposal.status == status_filter)
+        query = query.order_by(ActionProposal.created_at.desc())
+        result = await session.scalars(query)
+        proposals = list(result.all())
+
+        now = datetime.now(UTC).replace(tzinfo=None)
+        changed = False
+        for p in proposals:
+            if p.status == "awaiting_confirmation" and p.expires_at < now:
+                p.status = "expired"
+                changed = True
+        if changed:
+            await session.commit()
+
+        return proposals

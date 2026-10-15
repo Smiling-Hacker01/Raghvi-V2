@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -77,22 +79,29 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = onNavigateToMemories) {
-                        Text("Memories")
-                    }
-                    TextButton(onClick = onNavigateToTasks) {
-                        Text("Tasks")
-                    }
-                    TextButton(onClick = onNavigateToPrivacy) {
-                        Text("Privacy")
-                    }
-                    TextButton(onClick = onLogout) {
-                        Text("Logout")
+                    IconButton(onClick = onLogout) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = "Logout",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
                 )
+            )
+        },
+        bottomBar = {
+            com.raghvi.assistant.ui.components.RaghviBottomBar(
+                currentDestination = "chat",
+                onNavigate = { destination ->
+                    when (destination) {
+                        "memories" -> onNavigateToMemories()
+                        "tasks" -> onNavigateToTasks()
+                        "privacy" -> onNavigateToPrivacy()
+                    }
+                }
             )
         }
     ) { paddingValues ->

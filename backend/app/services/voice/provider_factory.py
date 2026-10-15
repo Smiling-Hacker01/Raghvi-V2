@@ -8,6 +8,7 @@ from app.services.voice.providers.cartesia import CartesiaProvider
 from app.services.voice.providers.coqui import CoquiProvider
 from app.services.voice.providers.coqui_xtts import CoquiXTTSProvider
 from app.services.voice.providers.deepgram import DeepgramProvider
+from app.services.voice.providers.edge_tts_provider import EdgeTTSProvider
 from app.services.voice.providers.elevenlabs import ElevenLabsProvider
 from app.services.voice.providers.nvidia import NvidiaProvider
 
@@ -18,6 +19,7 @@ class VoiceProviderFactory:
     """Factory for creating voice provider instances."""
 
     _providers: dict[str, type[VoiceProvider]] = {
+        "edge_tts": EdgeTTSProvider,
         "elevenlabs": ElevenLabsProvider,
         "coqui": CoquiProvider,
         "cartesia": CartesiaProvider,

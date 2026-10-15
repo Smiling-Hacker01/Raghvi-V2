@@ -22,8 +22,10 @@ def build_voice_adapter() -> VoiceProviderFallbackAdapter:
     ]
 
     if not provider_names:
-        provider_names = ["elevenlabs", "cartesia", "deepgram", "coqui_xtts"]
+        provider_names = ["edge_tts", "elevenlabs", "cartesia", "deepgram", "coqui_xtts"]
         logger.warning(f"No provider priority configured, using default: {provider_names}")
+    elif "edge_tts" not in provider_names:
+        provider_names.insert(0, "edge_tts")
 
     # Build provider configs
     provider_configs = []
@@ -85,6 +87,18 @@ def build_voice_adapter() -> VoiceProviderFallbackAdapter:
             else:
                 logger.info("NVIDIA API key not configured, skipping")
 
+        elif name == "edge_tts":
+            provider_configs.append(
+                {
+                    "name": "edge_tts",
+                    "config": {
+                        "hindi_voice": "hi-IN-SwaraNeural",
+                        "english_voice": "en-IN-NeerjaNeural",
+                        "rate": "-12%",
+                    },
+                }
+            )
+
         elif name == "coqui":
             provider_configs.append({"name": "coqui", "config": {}})
 
@@ -95,9 +109,18 @@ def build_voice_adapter() -> VoiceProviderFallbackAdapter:
             logger.warning(f"Unknown provider in priority list: {name}")
 
     if not provider_configs:
-        # Fallback to Coqui XTTS (offline)
-        logger.warning("No API keys configured, falling back to local Coqui XTTS")
-        provider_configs.append({"name": "coqui_xtts", "config": {}})
+        # Fallback to free edge_tts or local Coqui XTTS
+        logger.warning("No API keys configured, falling back to free edge_tts")
+        provider_configs.append(
+            {
+                "name": "edge_tts",
+                "config": {
+                    "hindi_voice": "hi-IN-SwaraNeural",
+                    "english_voice": "en-IN-NeerjaNeural",
+                    "rate": "-12%",
+                },
+            }
+        )
 
     logger.info(
         f"Building voice adapter with {len(provider_configs)} providers: "

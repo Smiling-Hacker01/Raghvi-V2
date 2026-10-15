@@ -6,8 +6,11 @@ without creating circular import issues with app.db.base.
 """
 
 from app.models.action import ActionProposal
+from app.models.communication import CommunicationItem
+from app.models.connected_account import ConnectedAccount
 from app.models.conversation import Conversation
 from app.models.creator import CreatorProfile
+from app.models.meeting_note import MeetingNote
 from app.models.memory import Memory
 from app.models.message import Message
 from app.models.payment import PaymentTransaction, WebhookEvent
@@ -20,8 +23,11 @@ from app.models.voice import SystemVoice, UserVoice
 
 __all__ = [
     "ActionProposal",
+    "CommunicationItem",
+    "ConnectedAccount",
     "Conversation",
     "CreatorProfile",
+    "MeetingNote",
     "Memory",
     "Message",
     "RefreshToken",

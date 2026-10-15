@@ -217,6 +217,10 @@ class TestMemoryExtractorIntegration:
                     "app.services.memory.extractor.get_ai_client",
                     return_value=extract_client,
                 ),
+                patch(
+                    "app.services.task_extractor.TaskExtractor.extract_tasks",
+                    return_value=[],
+                ),
             ):
                 result = await ChatService.send_message(
                     user_id=test_user.id,

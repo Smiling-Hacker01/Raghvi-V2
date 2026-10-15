@@ -6,6 +6,7 @@ from io import BytesIO
 from typing import BinaryIO
 
 import boto3
+from botocore.client import Config
 from botocore.exceptions import ClientError
 
 from app.core.config import get_settings
@@ -17,21 +18,25 @@ class S3Service:
     """Service for managing file uploads to S3."""
 
     def __init__(self):
-        """Initialize S3 client."""
+        """Initialize S3 client with explicit region endpoint and SigV4."""
         settings = get_settings()
         self.bucket_name = settings.s3_bucket
         self.voice_prefix = settings.s3_voice_prefix
         self.region = settings.s3_region
 
-        # Initialize S3 client
+        endpoint_url = f"https://s3.{self.region}.amazonaws.com" if self.region else None
+
+        # Initialize S3 client with SigV4 and regional endpoint
         self.s3_client = boto3.client(
             "s3",
             region_name=self.region,
             aws_access_key_id=settings.aws_access_key_id,
             aws_secret_access_key=settings.aws_secret_access_key,
+            endpoint_url=endpoint_url,
+            config=Config(signature_version="s3v4"),
         )
 
-        logger.info(f"S3 service initialized for bucket: {self.bucket_name}")
+        logger.info(f"S3 service initialized for bucket: {self.bucket_name} in {self.region}")
 
     async def upload_voice_sample(
         self,
@@ -144,12 +149,18 @@ class S3Service:
             return False
 
     def _extract_key_from_url(self, s3_url: str) -> str:
-        """Extract S3 key from full URL."""
-        # URL format: https://bucket.s3.region.amazonaws.com/key
-        parts = s3_url.split(".amazonaws.com/")
+        """Extract S3 key from full URL (handles both virtual-host and path styles)."""
+        clean_url = s3_url.split("?")[0]
+        if f"{self.bucket_name}/" in clean_url:
+            return clean_url.split(f"{self.bucket_name}/", 1)[1]
+        parts = clean_url.split(".amazonaws.com/")
         if len(parts) == 2:
             return parts[1]
         raise ValueError(f"Invalid S3 URL format: {s3_url}")
+
+    def get_voice_stream(self, s3_key: str) -> dict:
+        """Get streaming object for an S3 key."""
+        return self.s3_client.get_object(Bucket=self.bucket_name, Key=s3_key)
 
     async def get_file_metadata(self, s3_key: str) -> dict:
         """
