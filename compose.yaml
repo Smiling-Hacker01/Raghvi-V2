@@ -41,6 +41,11 @@ services:
     ports:
       - "8000:8000"
 
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/alembic:/app/alembic
+      - ./backend/scripts:/app/scripts
+
     depends_on:
       postgres:
         condition: service_healthy

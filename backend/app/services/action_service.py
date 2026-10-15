@@ -142,6 +142,34 @@ class ActionService:
         if confirmed:
             proposal.status = "confirmed"
             proposal.confirmed_at = now
+
+            # Automated execution hook for meeting proposals
+            if proposal.action_type == "schedule_meeting":
+                try:
+                    from app.services.communication_service import CommunicationService
+
+                    params = proposal.parameters or {}
+                    res = await CommunicationService.send_meeting_invitations(
+                        user_id=str(user_id),
+                        title=params.get("title", "Meeting"),
+                        date=params.get("date", ""),
+                        start_time=params.get("start_time", ""),
+                        attendees=params.get("attendees", []),
+                        description=params.get("description"),
+                        meet_link=params.get("meet_link"),
+                        session=session,
+                    )
+                    if res:
+                        updated_params = dict(params)
+                        if res.get("meet_link"):
+                            updated_params["meet_link"] = res["meet_link"]
+                        updated_params["calendar_created"] = res.get("calendar_created", False)
+                        updated_params["sent_to"] = res.get("sent_to", [])
+                        updated_params["requires_calendar_reauth"] = res.get("requires_calendar_reauth", False)
+                        proposal.parameters = updated_params
+                    proposal.status = "executed"
+                except Exception as e:
+                    logger.error(f"Failed to dispatch invites on meeting confirmation: {e}")
         else:
             proposal.status = "cancelled"
 
@@ -149,3 +177,28 @@ class ActionService:
         await session.refresh(proposal)
         logger.info(f"Action proposal {proposal.id} status updated to {proposal.status}")
         return proposal
+
+    @staticmethod
+    async def list_proposals(
+        user_id: str,
+        status_filter: str | None,
+        session: AsyncSession,
+    ) -> list[ActionProposal]:
+        """List all action proposals for user, updating expired ones."""
+        query = select(ActionProposal).where(ActionProposal.user_id == str(user_id))
+        if status_filter:
+            query = query.where(ActionProposal.status == status_filter)
+        query = query.order_by(ActionProposal.created_at.desc())
+        result = await session.scalars(query)
+        proposals = list(result.all())
+
+        now = datetime.now(UTC).replace(tzinfo=None)
+        changed = False
+        for p in proposals:
+            if p.status == "awaiting_confirmation" and p.expires_at < now:
+                p.status = "expired"
+                changed = True
+        if changed:
+            await session.commit()
+
+        return proposals

@@ -3,7 +3,7 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth import get_current_user
@@ -22,6 +22,40 @@ router = APIRouter(prefix="/actions", tags=["actions"])
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 DbSession = Annotated[AsyncSession, Depends(get_db_session)]
+
+
+@router.get("", response_model=list[ActionProposalResponse])
+async def list_actions(
+    current_user: CurrentUser,
+    session: DbSession,
+    status_filter: Annotated[
+        str | None,
+        Query(
+            alias="status",
+            description="Filter: awaiting_confirmation, confirmed, cancelled, expired",
+        ),
+    ] = None,
+) -> list[ActionProposalResponse]:
+    """List action proposals for the current user."""
+    proposals = await ActionService.list_proposals(
+        user_id=str(current_user.id),
+        status_filter=status_filter,
+        session=session,
+    )
+    return [
+        ActionProposalResponse(
+            id=str(p.id),
+            user_id=p.user_id,
+            action_type=p.action_type,
+            parameters=p.parameters,
+            status=p.status,
+            description=p.description,
+            expires_at=p.expires_at.isoformat(),
+            created_at=p.created_at.isoformat(),
+            confirmed_at=p.confirmed_at.isoformat() if p.confirmed_at else None,
+        )
+        for p in proposals
+    ]
 
 
 @router.post("/propose", response_model=ActionProposalResponse, status_code=status.HTTP_201_CREATED)

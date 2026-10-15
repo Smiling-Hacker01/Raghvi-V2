@@ -88,11 +88,24 @@ async def test_full_user_journey_end_to_end(client: httpx.AsyncClient) -> None:
     # ----------------------------------------------------
     # Step 3: Send message to Raghvi
     # ----------------------------------------------------
-    chat_resp = await client.post(
-        "/chat/send",
-        headers=headers,
-        json={"content": "Hello Raghvi, I am planning my schedule for the week."},
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    mock_ai = MagicMock()
+    mock_ai.send_message = AsyncMock(
+        return_value=(
+            "<emotion>warm</emotion><voice_text>Hello! I'm here for you.</voice_text>"
+            "<chat_text>Hello! Planning your schedule sounds great, let me help.</chat_text>",
+            45,
+            "mock_ai",
+        )
     )
+
+    with patch("app.services.chat.get_ai_client", return_value=mock_ai):
+        chat_resp = await client.post(
+            "/chat/send",
+            headers=headers,
+            json={"content": "Hello Raghvi, I am planning my schedule for the week."},
+        )
     assert chat_resp.status_code == 200
     chat_data = chat_resp.json()
     assert chat_data["user_message"] == "Hello Raghvi, I am planning my schedule for the week."

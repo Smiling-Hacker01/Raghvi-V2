@@ -205,3 +205,15 @@ async def test_meeting_and_whatsapp_action_proposals(client: httpx.AsyncClient) 
     wa_data = wa_res.json()
     assert wa_data["action_type"] == "send_whatsapp_message"
     assert wa_data["parameters"]["phone"] == "+919876543210"
+
+    # 3. List action proposals
+    list_res = await client.get("/actions", headers=headers)
+    assert list_res.status_code == 200
+    proposals = list_res.json()
+    assert len(proposals) == 2
+    assert {p["action_type"] for p in proposals} == {"schedule_meeting", "send_whatsapp_message"}
+
+    # 4. Filter by status
+    filter_res = await client.get("/actions?status=awaiting_confirmation", headers=headers)
+    assert filter_res.status_code == 200
+    assert len(filter_res.json()) == 2
