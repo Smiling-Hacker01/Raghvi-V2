@@ -330,10 +330,7 @@ async def clone_custom_sample(
         current_user.preferences = current_prefs
         await session.commit()
 
-        msg = (
-            f"Custom voice '{voice_name}' successfully cloned! "
-            "Raghvi will now use this voice."
-        )
+        msg = f"Custom voice '{voice_name}' successfully cloned! Raghvi will now use this voice."
         return {
             "status": "cloned",
             "voice_name": voice_name,

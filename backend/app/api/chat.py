@@ -469,12 +469,10 @@ async def live_gemini_voice(request: LiveGeminiVoiceRequest) -> dict:
                             )
                             if emails:
                                 summary_items = [
-                                    f"From: {e.sender_name}, Subject: '{e.subject}'"
-                                    for e in emails
+                                    f"From: {e.sender_name}, Subject: '{e.subject}'" for e in emails
                                 ]
-                                comm_context = (
-                                    f"User has {len(emails)} emails:\n"
-                                    + "\n".join(summary_items)
+                                comm_context = f"User has {len(emails)} emails:\n" + "\n".join(
+                                    summary_items
                                 )
                             else:
                                 comm_context = "No new or unread emails found."
@@ -513,9 +511,7 @@ async def live_gemini_voice(request: LiveGeminiVoiceRequest) -> dict:
                             )
                             if msgs:
                                 m_list = [f"{m.sender_name}: '{m.body}'" for m in msgs]
-                                comm_context = (
-                                    "Recent WhatsApp messages:\n" + "\n".join(m_list)
-                                )
+                                comm_context = "Recent WhatsApp messages:\n" + "\n".join(m_list)
                             else:
                                 comm_context = (
                                     f"No new WhatsApp messages from {sender or 'contacts'}."
@@ -527,8 +523,7 @@ async def live_gemini_voice(request: LiveGeminiVoiceRequest) -> dict:
                                 user_id=u_id, sender_name=sender, limit=5, session=db_sess
                             )
                             fallback_reply = (
-                                comm_intent.get("instructions")
-                                or "Haan main pahuch raha hoon."
+                                comm_intent.get("instructions") or "Haan main pahuch raha hoon."
                             )
                             draft = (
                                 CommunicationService.draft_human_whatsapp_reply(
