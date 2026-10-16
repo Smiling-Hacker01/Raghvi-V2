@@ -130,12 +130,23 @@ async def send_message_with_voice(
         voices = await VoiceService.get_user_voices(current_user.id, session)
         default_voices = [v for v in voices if v.is_default]
 
-        # Default fallback voice for multilingual providers
-        voice_id = default_voices[0].voice_id if default_voices else "EXAVITQu4vr4xnSDxMaL"
+        # Default fallback voice for multilingual providers (Swara Indian Neural)
+        voice_id = default_voices[0].voice_id if default_voices else "hi-IN-SwaraNeural"
+
+        # Cleanse and normalize conversational response for smooth prosody
+        from app.services.voice.text_normalizer import clean_text_for_speech
+
+        raw_text = result.get("voice_text") or result.get("assistant_message") or ""
+        is_hindi = language.lower().startswith("hi") or any(
+            "\u0900" <= ch <= "\u097f" for ch in raw_text
+        )
+        cleaned_text = clean_text_for_speech(raw_text, is_hindi=is_hindi)
+        if not cleaned_text.strip():
+            cleaned_text = "जी, समझ गई।" if is_hindi else "I understand."
 
         # Create synthesis request using the phonetic voice_text and emotion
         synthesis_request = VoiceSynthesisRequest(
-            text=result.get("voice_text", result["assistant_message"]),
+            text=cleaned_text,
             voice_id=voice_id,
             language=language,
             emotion=result.get("emotion"),
@@ -172,13 +183,21 @@ async def send_message_with_voice(
         audio_payload = None
         try:
             from app.services.voice.providers.base import VoiceSynthesisRequest
+            from app.services.voice.text_normalizer import clean_text_for_speech
             from app.services.voice.voice_adapter_builder import get_voice_adapter
 
             adapter = get_voice_adapter()
-            voice_id = "EXAVITQu4vr4xnSDxMaL"
+            voice_id = "hi-IN-SwaraNeural"
+
+            is_hindi = language.lower().startswith("hi") or any(
+                "\u0900" <= ch <= "\u097f" for ch in error_message
+            )
+            cleaned_error = clean_text_for_speech(error_message, is_hindi=is_hindi)
+            if not cleaned_error.strip():
+                cleaned_error = "जी, समझ गई।" if is_hindi else "I understand."
 
             synthesis_request = VoiceSynthesisRequest(
-                text=error_message,
+                text=cleaned_error,
                 voice_id=voice_id,
                 language=language,
                 emotion="empathetic",
@@ -213,13 +232,21 @@ async def send_message_with_voice(
         audio_payload = None
         try:
             from app.services.voice.providers.base import VoiceSynthesisRequest
+            from app.services.voice.text_normalizer import clean_text_for_speech
             from app.services.voice.voice_adapter_builder import get_voice_adapter
 
             adapter = get_voice_adapter()
-            voice_id = "EXAVITQu4vr4xnSDxMaL"
+            voice_id = "hi-IN-SwaraNeural"
+
+            is_hindi = language.lower().startswith("hi") or any(
+                "\u0900" <= ch <= "\u097f" for ch in error_message
+            )
+            cleaned_error = clean_text_for_speech(error_message, is_hindi=is_hindi)
+            if not cleaned_error.strip():
+                cleaned_error = "जी, समझ गई।" if is_hindi else "I understand."
 
             synthesis_request = VoiceSynthesisRequest(
-                text=error_message,
+                text=cleaned_error,
                 voice_id=voice_id,
                 language=language,
                 emotion="empathetic",

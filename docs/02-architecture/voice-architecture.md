@@ -1,388 +1,299 @@
-# Voice Architecture
+# Voice Architecture — Vendor-Agnostic Voice AI Infrastructure
 
-## Overview
+## 1. Overview
 
-Raghvi's voice system provides **multi-provider speech synthesis with automatic failover**, **voice cloning**, and **subscription-gated access**. The architecture mirrors the AI provider chain pattern for reliability.
+Raghvi V2's voice subsystem provides a **vendor-agnostic, plugin-based voice AI architecture** with support for:
+1. **Multi-provider Speech Synthesis (TTS)** with capability-aware routing and automatic failover.
+2. **Polyglot Indian-Language Synthesis** powered by **IndicF5** (AI4Bharat) covering 11 official Indian languages and Hinglish.
+3. **Zero-Shot Voice Cloning** with mandatory explicit user consent, reference-audio transcription alignment, and full lifecycle data management.
+4. **Coqui XTTS Integration** for high-fidelity English and multilingual synthesis with strict **CPML (Coqui Public Model License) non-commercial guardrails**.
+5. **Subscription-Gated Quotas & S3 Storage** with encrypted sample isolation.
+
+The architecture decouples conversational business logic from underlying voice models, allowing seamless hot-swapping, sidecar scaling, and addition of new providers without altering core application services.
 
 ---
 
-## Core Components
+## 2. Core Architecture & Components
 
-### 1. VoiceProvider (Abstract Base)
+```
+                    ┌────────────────────────────┐
+                    │ Conversational Application │
+                    │ (/chat/send-with-voice, UI)│
+                    └─────────────┬──────────────┘
+                                  │
+                                  ▼
+                    ┌────────────────────────────┐
+                    │        VoiceService        │
+                    │ (Consent, Quotas, Storage) │
+                    └─────────────┬──────────────┘
+                                  │
+                                  ▼
+                    ┌────────────────────────────┐
+                    │        VoiceRouter         │
+                    │(Language & Capability Map) │
+                    └──────┬───────────────┬─────┘
+                           │               │
+            ┌──────────────┴───┐       ┌───┴──────────────┐
+            │  Indian Language │       │ English / Global │
+            │      Routing     │       │     Routing      │
+            └──────────┬───────┘       └───┬──────────────┘
+                       │                   │
+                       ▼                   ▼
+            ┌──────────────────┐       ┌──────────────────┐
+            │  IndicF5Provider │       │ CoquiXTTSProvider│
+            │(11 Langs, 24kHz) │       │ (CPML Guardrail) │
+            └──────────┬───────┘       └───┬──────────────┘
+                       │                   │
+        ┌──────────────┴───────┐   ┌───────┴──────────────┐
+        │ Sidecar / Local PyTorch   │ Cloud Failover Chains│
+        │ (ai4bharat/IndicF5)       │ (EdgeTTS, ElevenLabs)│
+        └──────────────────────┘   └──────────────────────┘
+```
+
+### 2.1 The Shared Provider Contract (`VoiceProvider`)
+
+Every voice provider adheres to the abstract contract defined in `backend/app/services/voice/providers/base.py`:
 
 ```python
 class VoiceProvider(ABC):
+    """Abstract base class for all vendor-agnostic voice providers."""
+
+    def __init__(self, config: dict[str, Any]):
+        self.config = config
+
+    @property
+    @abstractmethod
+    def provider_name(self) -> str:
+        """Unique identifier (e.g., 'indicf5', 'coqui_xtts', 'edge_tts')."""
+        pass
+
+    def get_capabilities(self) -> ProviderCapabilities:
+        """Explicit capability declaration."""
+        ...
+
+    async def check_health(self) -> dict[str, Any]:
+        """Readiness and connectivity status check."""
+        ...
+
     @abstractmethod
     async def synthesize_speech(self, request: VoiceSynthesisRequest) -> VoiceSynthesisResponse:
-        ...
-    
+        """Synthesize text into PCM/WAV/MP3 audio."""
+        pass
+
     @abstractmethod
     async def clone_voice(self, request: VoiceCloneRequest) -> VoiceCloneResponse:
-        ...
-    
-    @abstractmethod
-    def validate_config(self) -> bool:
-        ...
+        """Enroll or clone a voice from reference audio."""
+        pass
 ```
 
-**Location**: `backend/app/services/voice/providers/base.py`
+### 2.2 Capability Discovery Contract (`ProviderCapabilities`)
 
-### 2. Provider Implementations
-
-| Provider | Class | Models | Features |
-|----------|-------|--------|----------|
-| ElevenLabs | `ElevenLabsProvider` | eleven_multilingual_v2, eleven_turbo_v2 | Premium, cloning, multilingual |
-| Cartesia | `CartesiaProvider` | sonic, sonic-2 | Fast, low latency |
-| Deepgram | `DeepgramProvider` | aura-asteria-en, aura-orpheus-en | TTS, streaming |
-| Coqui XTTS | `CoquiXTTSProvider` | xtts_v2 | Open-source, self-hosted |
-
-**Location**: `backend/app/services/voice/providers/`
-
-### 3. VoiceProviderFactory (Dynamic Loading)
+Providers explicitly declare their verified capabilities rather than relying on assumed features:
 
 ```python
-class VoiceProviderFactory:
-    @staticmethod
-    def create_provider(name: str, config: dict) -> VoiceProvider:
-        if name == "elevenlabs":
-            return ElevenLabsProvider(config)
-        elif name == "cartesia":
-            return CartesiaProvider(config)
-        elif name == "deepgram":
-            return DeepgramProvider(config)
-        elif name == "coqui_xtts":
-            return CoquiXTTSProvider(config)
-        raise ValueError(f"Unknown provider: {name}")
-    
-    @staticmethod
-    def get_available_providers(config: dict) -> list[str]:
-        # Returns list of providers with valid API keys
-```
+class VoiceCapability(StrEnum):
+    TEXT_TO_SPEECH = "tts"
+    VOICE_CLONING = "voice_cloning"
+    ZERO_SHOT_CLONING = "zero_shot_cloning"
+    STREAMING = "streaming"
+    EMOTION_CONTROL = "emotion_control"
+    MULTI_LINGUAL = "multi_lingual"
+    SPEED_CONTROL = "speed_control"
 
-**Location**: `backend/app/services/voice/provider_factory.py`
-
-### 4. VoiceAdapterBuilder (Failover Chain)
-
-```python
-class VoiceAdapterBuilder:
-    def __init__(self, priority: list[str]):
-        self.priority = priority  # From settings.voice_provider_priority
-    
-    def build(self) -> VoiceAdapter:
-        # Creates chain similar to AIProviderChain
-        # Tries providers in priority order on failure
-```
-
-**Location**: `backend/app/services/voice/voice_adapter_builder.py`
-
-### 5. VoiceService (Business Logic)
-
-```python
-class VoiceService:
-    # User voice management
-    async def create_user_voice(...)
-    async def get_user_voices(user_id, session)
-    async def set_default_voice(voice_id, user_id, session)
-    async def delete_user_voice(voice_id, user_id, session)
-    async def expire_user_voices(user_id, session)  # On subscription downgrade
-    
-    # System voices
-    async def get_system_voices(session, language=None)
-    
-    # Voice cloning
-    async def clone_voice(user_id, voice_name, audio_path, provider, config, session)
-    
-    # Speech synthesis
-    async def synthesize_speech(text, voice_id, user_id, provider, config, session)
-```
-
-**Location**: `backend/app/services/voice/voice_service.py`
-
----
-
-## Request Flows
-
-### Speech Synthesis (with Failover)
-
-```
-POST /voices/synthesize
-    │
-    ▼
-VoiceService.synthesize_speech()
-    │
-    ▼
-get_voice_adapter() ───► VoiceAdapterBuilder.build()
-    │
-    ▼
-VoiceAdapter.synthesize_speech()
-    │
-    ├─► Try ElevenLabs (primary)
-    ├─► On failure: try Cartesia
-    ├─► On failure: try Deepgram
-    └─► On failure: try Coqui XTTS
-    │
-    ▼
-Return VoiceSynthesisResponse(audio_data, format, sample_rate)
-    │
-    ▼
-API returns base64 audio
-```
-
-### Voice Cloning
-
-```
-POST /voices/upload (audio file → S3)
-    │
-    ▼
-POST /voices/{voice_id}/clone
-    │
-    ▼
-VoiceService.clone_voice()
-    │
-    ▼
-1. Verify subscription allows custom voices
-2. Download audio from S3
-3. Call provider.clone_voice()
-4. Create UserVoice record with provider voice_id
-5. Set expires_at to subscription expiry
-```
-
-### Chat with Voice
-
-```
-POST /chat/send-with-voice
-    │
-    ▼
-ChatService.send_message() ───► Get text response
-    │
-    ▼
-VoiceService.synthesize_speech(voice_text, user's default voice)
-    │
-    ▼
-Return {text_response, audio_base64, emotion, voice_text}
+@dataclass
+class ProviderCapabilities:
+    capabilities: set[VoiceCapability]
+    supported_languages: set[str]
+    supported_audio_formats: list[str] = field(default_factory=lambda: ["wav", "mp3"])
+    sample_rates: list[int] = field(default_factory=lambda: [24000, 44100])
+    is_commercial_ready: bool = True
+    is_local_inference: bool = False
+    requires_reference_transcript: bool = False
+    license_type: str = "Permissive"
 ```
 
 ---
 
-## Data Models
+## 3. Technology Evaluation: IndicF5 & Coqui XTTS
 
-### UserVoice
+| Metric | IndicF5 (AI4Bharat) | Coqui XTTS-v2 | Edge Neural TTS | ElevenLabs |
+| :--- | :--- | :--- | :--- | :--- |
+| **Primary Domain** | Indian Languages & Hinglish | English & Multilingual | Indian English & Hindi | Global English & Clones |
+| **Supported Indian Languages** | **11** (`hi, ta, te, bn, mr, gu, kn, ml, pa, or, as`) + `hinglish` | Hindi (limited) | `hi, en-IN, ta, te, bn, mr, gu, kn, ml, ur` | Multilingual (29+) |
+| **Zero-Shot Voice Cloning** | Supported (Audio + Transcript) | Supported (Audio only) | Not supported (Presets) | Instant & Professional Cloning |
+| **Sample Rate** | 24,000 Hz | 24,000 Hz | 24,000 Hz | 44,100 Hz |
+| **License** | **MIT License** (Commercial Permissive) | **CPML** (Strictly Non-Commercial) | Microsoft Online Services | Commercial SaaS |
+| **Commercial Readiness** | **Yes (`is_commercial_ready=True`)** | **No (`is_commercial_ready=False`)** | Yes | Yes |
+| **Deployment Mode** | HTTP Sidecar or In-process | HTTP Sidecar or In-process | Cloud API (zero auth required) | Cloud SaaS |
+| **Hardware Reqs** | GPU: 8GB+ VRAM or CPU sidecar | GPU: 8GB+ VRAM (NVIDIA CUDA) | Zero local compute | Zero local compute |
+
+### 3.1 IndicF5 Architecture & Voice Cloning
+- **Architecture**: Flow-matching diffusion transformer built on acoustic prefix matching.
+- **Transcript Requirement**: For optimal acoustic alignment, IndicF5 voice enrollment accepts both reference audio (`audio_file_path`) and reference text (`reference_text`). If text is omitted, canonical Hindi/English phonetic pangrams are supplied by default.
+- **Sidecar Microservice**: Because modern production environments (such as Python 3.13) can conflict with heavy CUDA C-extensions, IndicF5 is designed to operate primarily via a dedicated HTTP sidecar (`INDICF5_ENDPOINT_URL`). If the sidecar is unreachable, an in-process acoustic synthesizer acts as a graceful fallback.
+
+### 3.2 Coqui XTTS & CPML Guardrails
+- **Operational Reality**: Coqui AI dissolved in January 2024. The `xtts_v2` model weights are licensed under the **Coqui Public Model License (CPML)**, which prohibits commercial production without an explicit enterprise license.
+- **Architectural Safeguard**: `CoquiXTTSProvider` flags `is_commercial_ready = False` in its capabilities. The application and health endpoint (`/voices/providers/health`) surface this warning clearly to prevent unintentional licensing non-compliance.
+- **Recommended Alternative**: For commercial English voice cloning, the pipeline routes to ElevenLabs or F5-TTS / Kokoro.
+
+---
+
+## 4. Intelligent Routing (`VoiceRouter`)
+
+The `VoiceRouter` (`backend/app/services/voice/router.py`) governs provider selection based on:
+1. **Target Language & Script**:
+   - Indian languages (`hi`, `ta`, `te`, `bn`, `mr`, `gu`, `kn`, `ml`, `pa`, `or`, `as`, `hinglish`) automatically prioritize `indicf5`.
+   - English requests prioritize `coqui_xtts` (for local cloning) or `edge_tts` / `elevenlabs`.
+2. **Capability Matching**:
+   - Checks `provider.get_capabilities().supports(capability)`.
+   - Requests for voice cloning filter out preset-only providers (such as Edge TTS).
+3. **Explicit User Preference**:
+   - If a caller supplies `preferred_provider`, it is placed at the head of the candidate list provided it supports the requested language and capability.
+4. **Deterministic Failover**:
+   - If the primary provider raises `VoiceProviderError` or times out (default: 30s), the router falls back to the next compatible provider.
+   - **No Silent Intent Degradation**: If an unsupported language is requested (e.g. `fr` when only `hi` and `en` providers are loaded), the router raises a descriptive `VoiceProviderError` rather than silently replacing it with English.
+
+---
+
+## 5. Voice Cloning & Consent Verification
+
+Voice cloning carries severe privacy and authenticity implications. Raghvi enforces the following safeguards:
+
+1. **Mandatory Explicit Consent**:
+   - Every cloning request (`POST /voices/upload`, `POST /voices/{id}/clone`, `VoiceCloneRequest`) requires `consent_confirmed = True`.
+   - Requests without consent fail with HTTP 400 (`"Explicit user authorization and consent required"`).
+2. **Media Validation**:
+   - Supported containers: `.wav`, `.mp3`, `.m4a`, `.ogg`, `.flac`, `.mp4`, `.mov`, `.webm`.
+   - Max file size: 20 MB.
+   - Recommended duration: 45 to 120 seconds.
+3. **Storage & Isolation**:
+   - Raw recordings are uploaded to S3 under isolated prefixes: `voices/{user_id}/{voice_id}.{ext}`.
+   - Private S3 URLs are never leaked in plain text; temporary presigned URLs (TTL: 24h) are generated on demand.
+4. **Right to Deletion**:
+   - `DELETE /voices/{id}` soft-deletes the database record and permanently purges the audio sample from S3.
+
+---
+
+## 6. How to Add a New Voice Provider
+
+Adding a new voice provider requires four simple steps:
+
+### Step 1: Create the Provider Class
+Create `backend/app/services/voice/providers/my_provider.py` inheriting from `VoiceProvider`:
 
 ```python
-class UserVoice(Base):
-    __tablename__ = "user_voices"
-    
-    id = Column(Uuid, primary_key=True, default=uuid4)
-    user_id = Column(String(36), nullable=False, index=True)
-    voice_type = Column(String(20), default="system")  # "system" or "custom"
-    voice_id = Column(String(255), nullable=False)     # Provider-specific voice ID
-    voice_name = Column(String(255), nullable=False)
-    provider = Column(String(50), nullable=False)
-    languages = Column(String(10), default="en")
-    subscription_plan_id = Column(String(50), nullable=True)
-    expires_at = Column(DateTime, nullable=True)       # Tied to subscription
-    expires_with_subscription = Column(Boolean, default=True)
-    audio_sample_url = Column(String(500), nullable=True)  # S3 URL
-    is_default = Column(Boolean, default=False)
-    is_active = Column(Boolean, default=True)
-    deleted_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=get_utc_now)
-    updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now)
-    
+from app.services.voice.providers.base import (
+    VoiceProvider, ProviderCapabilities, VoiceCapability,
+    VoiceSynthesisRequest, VoiceSynthesisResponse,
+    VoiceCloneRequest, VoiceCloneResponse, VoiceProviderError,
+)
+
+class MyVoiceProvider(VoiceProvider):
     @property
-    def is_available(self) -> bool:
-        return self.is_active and self.deleted_at is None and \
-               (self.expires_at is None or self.expires_at > now)
+    def provider_name(self) -> str:
+        return "my_provider"
+
+    def get_capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities(
+            capabilities={VoiceCapability.TEXT_TO_SPEECH, VoiceCapability.STREAMING},
+            supported_languages={"en", "hi", "es"},
+            supported_audio_formats=["mp3", "wav"],
+            sample_rates=[24000, 48000],
+            is_commercial_ready=True,
+            license_type="Commercial SaaS",
+        )
+
+    async def check_health(self) -> dict:
+        return {"status": "ready", "provider": self.provider_name}
+
+    async def synthesize_speech(self, request: VoiceSynthesisRequest) -> VoiceSynthesisResponse:
+        # Implementation here
+        return VoiceSynthesisResponse(audio_data=b"...", audio_format="wav", provider=self.provider_name)
+
+    async def clone_voice(self, request: VoiceCloneRequest) -> VoiceCloneResponse:
+        raise VoiceProviderError("Cloning not supported by MyVoiceProvider")
 ```
 
-### SystemVoice
+### Step 2: Register in `VoiceProviderFactory`
+In `backend/app/services/voice/provider_factory.py`:
 
 ```python
-class SystemVoice(Base):
-    __tablename__ = "system_voices"
-    
-    id = Column(String(50), primary_key=True)  # Provider voice ID
-    voice_name = Column(String(255), nullable=False)
-    provider = Column(String(50), nullable=False)
-    language = Column(String(10), default="en")
-    quality_score = Column(Integer, default=50)  # 0-100 for sorting
-    is_active = Column(Boolean, default=True)
+from app.services.voice.providers.my_provider import MyVoiceProvider
+
+_providers["my_provider"] = MyVoiceProvider
 ```
 
----
-
-## Subscription Gating
-
-### Plan Limits
-
-| Plan | Max Custom Voices | Voice Features |
-|------|-------------------|----------------|
-| Free | 0 | System voices only |
-| Pro | 3 | Custom voices + cloning |
-| Premium | 10 | Custom voices + cloning + priority |
-
-### Enforcement Points
-
-1. **Upload**: Check `plan.max_custom_voices` before allowing upload
-2. **Clone**: Verify active subscription + voice quota
-3. **Synthesize**: Allow system voices for all; custom voices require active subscription
-4. **Downgrade/Cancel**: `VoiceService.expire_user_voices()` sets `expires_at = now`, `is_active = false`
-
----
-
-## S3 Storage for Voice Samples
-
-### S3Service
-
+### Step 3: Add Configuration
+In `backend/app/core/config.py`:
 ```python
-class S3Service:
-    async def upload_voice_sample(user_id, voice_id, audio_data, file_extension) -> str:
-        # Key: voices/{user_id}/{voice_id}.{ext}
-        # Returns: presigned URL or public URL
-    
-    async def delete_voice_sample(s3_url) -> None:
-        # Parse key from URL, delete object
+my_provider_api_key: str = ""
+```
+And in `backend/app/services/voice/voice_adapter_builder.py`:
+```python
+elif name == "my_provider":
+    if settings.my_provider_api_key:
+        provider_configs.append({"name": "my_provider", "config": {"api_key": settings.my_provider_api_key}})
 ```
 
-**Location**: `backend/app/services/storage/s3_service.py`
-
-### Configuration
-
-```env
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-S3_BUCKET=raghvi-voice-samples
-S3_REGION=us-east-1
-S3_VOICE_PREFIX=voices/
-```
+### Step 4: Add Automated Tests
+Add test coverage in `backend/tests/test_voice_vendor_agnostic.py`.
 
 ---
 
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/voices` | List user's voices |
-| POST | `/voices/upload` | Upload voice sample (multipart) |
-| POST | `/voices/{id}/clone` | Clone voice via provider |
-| POST | `/voices/{id}/set-default` | Set default voice |
-| DELETE | `/voices/{id}` | Delete voice (also removes S3 file) |
-| GET | `/voices/system` | List available system voices |
-| POST | `/voices/synthesize` | Synthesize speech (text → base64 audio) |
-
-### Synthesis Request
-
-```json
-POST /voices/synthesize
-Content-Type: multipart/form-data
-
-text: "Hello, how can I help you?"
-voice_id: "optional-voice-id"  // Uses default if omitted
-language: "en"
-```
-
-### Synthesis Response
-
-```json
-{
-  "success": true,
-  "text": "Hello, how can I help you?",
-  "voice_id": "EXAVITQu4vr4xnSDxMaL",
-  "provider": "voice_synthesis",
-  "audio_base64": "UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT",
-  "audio_format": "wav",
-  "sample_rate": 44100,
-  "duration_estimate": 1.5
-}
-```
-
----
-
-## Configuration
-
-### Environment Variables
+## 7. Configuration Reference
 
 ```env
-# Voice provider priority (comma-separated, tried in order)
-VOICE_PROVIDER_PRIORITY=elevenlabs,cartesia,deepgram,coqui_xtts
+# Priority order (router tries compatible providers in this order)
+VOICE_PROVIDER_PRIORITY=edge_tts,indicf5,elevenlabs,cartesia,deepgram,coqui_xtts
 
-# Provider API keys
-ELEVENLABS_API_KEY=...
-ELEVENLABS_MODEL_ID=eleven_multilingual_v2
+# IndicF5 Sidecar Configuration
+INDICF5_ENDPOINT_URL=http://localhost:8008
+INDICF5_MODEL_ID=ai4bharat/IndicF5
 
-CARTESIA_API_KEY=...
-CARTESIA_MODEL_ID=sonic
+# Coqui XTTS Configuration
+COQUI_XTTS_ENDPOINT_URL=http://localhost:8020
+COQUI_MODEL_NAME=tts_models/multilingual/multi-dataset/xtts_v2
 
-DEEPGRAM_API_KEY=...
-DEEPGRAM_MODEL=aura-asteria-en
+# Cloud API Keys
+ELEVENLABS_API_KEY=
+CARTESIA_API_KEY=
+DEEPGRAM_API_KEY=
+NVIDIA_API_KEY=
 
-NVIDIA_API_KEY=...
-NVIDIA_MODEL=fastpitch  # For Coqui/XTTS
-
-# Voice synthesis settings
-VOICE_SAMPLE_RATE=44100
-VOICE_BIT_DEPTH=16
-VOICE_CHANNELS=1
+# Audio Configuration
+VOICE_SAMPLE_RATE=24000
 VOICE_FORMAT=wav
-
-# Voice cloning limits
-VOICE_CLONE_MIN_DURATION=45      # seconds
-VOICE_CLONE_MAX_DURATION=120     # seconds
 VOICE_CLONE_MAX_FILE_SIZE=20971520  # 20 MB
-
-# S3
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-S3_BUCKET=...
-S3_REGION=us-east-1
-S3_VOICE_PREFIX=voices/
-
-# Redis cache TTL for synthesized audio
-REDIS_VOICE_CACHE_TTL=1800  # 30 minutes
 ```
 
 ---
 
-## Multilingual Support
+## 8. API Endpoints Reference
 
-- ElevenLabs: `eleven_multilingual_v2` supports 29+ languages
-- Deepgram: Aura voices primarily English, expanding
-- Cartesia: Sonic supports multiple languages
-- Coqui XTTS: 17 languages via `xtts_v2`
-
-Language passed via `language` parameter in synthesis request (ISO 639-1 code).
+| Method | Route | Description |
+| :--- | :--- | :--- |
+| `GET` | `/voices/providers/capabilities` | Returns verified capabilities, formats, and licenses of all providers |
+| `GET` | `/voices/providers/health` | Returns real-time health and readiness of all providers |
+| `POST` | `/voices/synthesize` | Synthesizes text with automatic language/capability routing and failover |
+| `POST` | `/voices/upload` | Uploads authorized voice reference media with consent verification |
+| `POST` | `/voices/{id}/clone` | Activates synthetic voice enrollment |
+| `GET` | `/voices` | Lists caller's active voices |
+| `POST` | `/voices/{id}/set-default`| Selects default voice profile |
+| `DELETE`| `/voices/{id}` | Permanently deletes voice profile and associated S3 media |
+| `POST` | `/chat/send-with-voice` | Conversational response returned with aligned audio speech |
 
 ---
 
-## Emotion & Voice Text (from Chat)
+## 9. Verification & Testing
 
-Chat responses include XML tags parsed for voice synthesis:
-
-```xml
-<emotion>empathetic</emotion>
-<voice_text>Soft, warm tone: "I understand how you feel."</voice_text>
-<chat_text>I understand how you feel. Would you like to talk about it?</chat_text>
+Run all voice architecture tests:
+```bash
+uv run pytest tests/test_voice_vendor_agnostic.py tests/test_voice_adapter_builder.py tests/test_voice_fallback.py tests/test_voice_api.py -v
 ```
 
-- `emotion`: Passed to providers that support emotion control (ElevenLabs)
-- `voice_text`: Used for synthesis (can differ from chat text for prosody)
-- `chat_text`: Shown to user in chat UI
-
----
-
-## Testing
-
-| Test | Coverage |
-|------|----------|
-| Provider adapters | Mock HTTP clients, test success/error paths |
-| VoiceAdapterBuilder | Failover chain order, config validation |
-| VoiceService | CRUD, quota enforcement, expiration logic |
-| S3Service | Upload/download/delete with mocked boto3 |
-| API endpoints | Auth, validation, subscription gating, error responses |
-
----
-
-## Related ADRs
-
-- [ADR-007: Android Device Integration](../03-decisions/ADR-007-android-device-integration-action.md)
-- [ADR-011: Deployment, Secrets, Release Strategy](../03-decisions/ADR-011-deployment-environments-secrets-and-release-strategy.md)
+Linting & formatting compliance:
+```bash
+uv run ruff check .
+uv run ruff format --check .
+```

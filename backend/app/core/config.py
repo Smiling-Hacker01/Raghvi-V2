@@ -67,6 +67,12 @@ class Settings(BaseSettings):
     nvidia_api_key: str = ""
     nvidia_model: str = "fastpitch"
 
+    # IndicF5 & Coqui inference service configuration
+    indicf5_endpoint_url: str = ""
+    indicf5_model_id: str = "ai4bharat/IndicF5"
+    coqui_endpoint_url: str = ""
+    coqui_model_name: str = "tts_models/multilingual/multi-dataset/xtts_v2"
+
     # Voice provider priority (comma-separated, will try in order)
     voice_provider_priority: str = "edge_tts,elevenlabs,cartesia,deepgram,coqui_xtts"
 

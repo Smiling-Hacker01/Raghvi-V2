@@ -171,6 +171,22 @@ class VoiceProviderFallbackAdapter:
 
         return all_voices
 
+    def get_router(self):
+        """Get or create VoiceRouter wrapping the configured providers."""
+        if not hasattr(self, "_router") or self._router is None:
+            from app.services.voice.router import VoiceRouter
+
+            self._router = VoiceRouter(self.providers)
+        return self._router
+
+    def get_capabilities_map(self) -> dict[str, Any]:
+        """Return declared capabilities for all registered providers."""
+        return self.get_router().get_capabilities_map()
+
+    async def check_health_all(self) -> dict[str, dict[str, Any]]:
+        """Run health and readiness checks across all registered providers."""
+        return await self.get_router().check_health_all()
+
     def get_provider_status(self) -> dict[str, dict]:
         """
         Get status of all providers.

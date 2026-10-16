@@ -39,6 +39,40 @@ class ElevenLabsProvider(VoiceProvider):
         if not self.api_key:
             logger.warning("ElevenLabs API key not configured")
 
+    def get_capabilities(self):
+        """Explicit capability declaration for ElevenLabs provider."""
+        from app.services.voice.providers.base import ProviderCapabilities, VoiceCapability
+
+        return ProviderCapabilities(
+            capabilities={
+                VoiceCapability.TEXT_TO_SPEECH,
+                VoiceCapability.VOICE_CLONING,
+                VoiceCapability.STREAMING,
+                VoiceCapability.MULTI_LINGUAL,
+            },
+            supported_languages={"*"},
+            supported_audio_formats=["mp3", "wav"],
+            sample_rates=[44100],
+            is_commercial_ready=True,
+            is_local_inference=False,
+            license_type="Commercial SaaS",
+        )
+
+    async def check_health(self) -> dict[str, Any]:
+        """Check ElevenLabs connectivity and API key validity."""
+        if not self.api_key:
+            return {
+                "status": "unconfigured",
+                "provider": self.provider_name,
+                "error": "ElevenLabs API key is missing",
+            }
+        return {
+            "status": "ready",
+            "provider": self.provider_name,
+            "model_id": self.model_id,
+            "is_commercial_ready": True,
+        }
+
     async def clone_voice(self, request: VoiceCloneRequest) -> VoiceCloneResponse:
         """Clone a voice using ElevenLabs API."""
 

@@ -531,20 +531,33 @@ async def synthesize_speech(
             voices = await VoiceService.get_user_voices(current_user.id, session)
             default_voices = [v for v in voices if v.is_default]
 
-            # Use Deepgram-compatible default (works if Deepgram is configured)
-            selected_voice_id = default_voices[0].voice_id if default_voices else "aura-asteria-en"
+            # Default to Swara Indian Neural voice for consistent identity
+            selected_voice_id = (
+                default_voices[0].voice_id if default_voices else "hi-IN-SwaraNeural"
+            )
+
+        # Pre-clean conversational formatting, emojis, and symbols
+        from app.services.voice.text_normalizer import clean_text_for_speech
+
+        is_hindi = language.lower().startswith("hi") or any(
+            "\u0900" <= ch <= "\u097f" for ch in text
+        )
+        cleaned_text = clean_text_for_speech(text, is_hindi=is_hindi)
+        if not cleaned_text.strip():
+            cleaned_text = "जी, समझ गई।" if is_hindi else "I understand."
 
         # Create synthesis request
         request = VoiceSynthesisRequest(
-            text=text,
+            text=cleaned_text,
             voice_id=selected_voice_id,
             language=language,
         )
 
-        # Synthesize with automatic fallback
+        # Synthesize with automatic fallback or intelligent routing
         logger.info(f"Synthesizing speech for user {current_user.id}: '{text[:50]}...'")
 
-        response = await adapter.synthesize_speech(request)
+        router = adapter.get_router()
+        response = await router.synthesize_speech(request)
 
         # Option 1: Return as playable binary audio directly in Postman / browser
         if response_format == "audio":
@@ -565,7 +578,7 @@ async def synthesize_speech(
             "success": True,
             "text": text,
             "voice_id": selected_voice_id,
-            "provider": "voice_synthesis",
+            "provider": response.provider or "voice_synthesis",
             "audio_base64": audio_base64,
             "audio_format": response.audio_format,
             "sample_rate": 44100,
@@ -579,4 +592,66 @@ async def synthesize_speech(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to synthesize speech: {str(e)}",
+        ) from e
+
+
+@router.get("/providers/capabilities")
+async def get_voice_providers_capabilities(
+    current_user: CurrentUser,
+) -> dict:
+    """Retrieve capabilities and supported languages of all registered voice providers."""
+    try:
+        from app.services.voice.voice_adapter_builder import get_voice_adapter
+
+        adapter = get_voice_adapter()
+        caps_map = adapter.get_capabilities_map()
+
+        serialized = {}
+        for name, caps in caps_map.items():
+            serialized[name] = {
+                "capabilities": [c.value for c in caps.capabilities],
+                "supported_languages": sorted(caps.supported_languages),
+                "supported_audio_formats": caps.supported_audio_formats,
+                "sample_rates": caps.sample_rates,
+                "is_commercial_ready": caps.is_commercial_ready,
+                "is_local_inference": caps.is_local_inference,
+                "license_type": caps.license_type,
+            }
+
+        return {
+            "success": True,
+            "providers": serialized,
+            "total_providers": len(serialized),
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch voice capabilities: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve voice provider capabilities",
+        ) from e
+
+
+@router.get("/providers/health")
+async def get_voice_providers_health(
+    current_user: CurrentUser,
+) -> dict:
+    """Run readiness and health checks across all registered voice providers."""
+    try:
+        from datetime import UTC, datetime
+
+        from app.services.voice.voice_adapter_builder import get_voice_adapter
+
+        adapter = get_voice_adapter()
+        health_results = await adapter.check_health_all()
+
+        return {
+            "success": True,
+            "providers": health_results,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Failed to check voice health: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to check voice provider health",
         ) from e

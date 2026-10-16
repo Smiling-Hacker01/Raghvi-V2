@@ -99,11 +99,30 @@ def build_voice_adapter() -> VoiceProviderFallbackAdapter:
                 }
             )
 
+        elif name == "indicf5":
+            provider_configs.append(
+                {
+                    "name": "indicf5",
+                    "config": {
+                        "endpoint_url": settings.indicf5_endpoint_url,
+                        "model_id": settings.indicf5_model_id,
+                    },
+                }
+            )
+
         elif name == "coqui":
             provider_configs.append({"name": "coqui", "config": {}})
 
         elif name == "coqui_xtts":
-            provider_configs.append({"name": "coqui_xtts", "config": {}})
+            provider_configs.append(
+                {
+                    "name": "coqui_xtts",
+                    "config": {
+                        "endpoint_url": settings.coqui_endpoint_url,
+                        "model_name": settings.coqui_model_name,
+                    },
+                }
+            )
 
         else:
             logger.warning(f"Unknown provider in priority list: {name}")
