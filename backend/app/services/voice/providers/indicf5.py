@@ -5,6 +5,7 @@ using flow-matching diffusion architecture developed by AI4Bharat.
 Released under the permissive MIT License for commercial and private use.
 """
 
+import asyncio
 import io
 import logging
 import math
@@ -246,8 +247,17 @@ class IndicF5Provider(VoiceProvider):
             "speed": request.speed or 1.0,
         }
 
+        # Use a short connect timeout so if Colab is down/cold, we fail fast to Swara (< 2s)
+        # rather than blocking the user for 30 seconds.
+        timeout_config = httpx.Timeout(
+            connect=2.0,
+            read=self.timeout,
+            write=5.0,
+            pool=2.0,
+        )
+
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with httpx.AsyncClient(timeout=timeout_config) as client:
                 resp = await client.post(
                     f"{self.endpoint_url.rstrip('/')}/synthesize",
                     json=payload,
@@ -264,8 +274,38 @@ class IndicF5Provider(VoiceProvider):
                     sample_rate=self.sample_rate,
                     provider=self.provider_name,
                 )
+        except (httpx.ConnectTimeout, httpx.ConnectError) as e:
+            # Trigger background wake-up ping so Colab starts warming up
+            self._trigger_wake_up_ping()
+            raise VoiceProviderError(
+                f"IndicF5 Colab GPU sidecar is currently offline or warming up ({e}). "
+                "Triggered background wake-up ping; failing over to Swara immediately."
+            ) from e
         except httpx.RequestError as e:
+            self._trigger_wake_up_ping()
             raise VoiceProviderError(f"Failed to reach IndicF5 sidecar service: {e}") from e
+
+    def _trigger_wake_up_ping(self) -> None:
+        """Trigger an asynchronous background ping to wake up sleeping Colab sidecar."""
+        if not self.endpoint_url:
+            return
+
+        async def _ping():
+            try:
+                # Longer timeout for the background wake-up attempt
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    logger.info(
+                        f"Pinging Colab GPU sidecar to wake up: {self.endpoint_url}/health"
+                    )
+                    await client.get(f"{self.endpoint_url.rstrip('/')}/health")
+            except Exception as err:
+                logger.debug(f"Background Colab wake-up ping attempt: {err}")
+
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(_ping())
+        except RuntimeError:
+            pass
 
     async def _synthesize_via_local_model(
         self, request: VoiceSynthesisRequest, language: str

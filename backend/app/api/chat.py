@@ -4,6 +4,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -388,3 +389,98 @@ async def get_chat_history(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to load chat history",
         ) from e
+
+
+class LiveGeminiVoiceRequest(BaseModel):
+    message: str
+    mode: str = "chat"  # "chat" (talk with Raghvi) or "translate" (transliterate input)
+    history: list[dict[str, str]] = []
+    sidecar_url: str | None = None
+    speed: float = 1.0
+
+
+@router.post("/live-gemini-voice")
+async def live_gemini_voice(request: LiveGeminiVoiceRequest) -> dict:
+    """Live conversational Gemini chat with zero-shot voice synthesis.
+
+    Translates & responds to Hinglish/English intelligently without static mapping.
+    """
+    import base64
+
+    import httpx
+
+    from app.core.config import get_settings
+    from app.services.ai.providers.gemini import GeminiAdapter
+    from app.services.voice.text_normalizer import clean_text_for_speech
+
+    msg = request.message.strip()
+    if not msg:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Message cannot be empty",
+        )
+
+    settings = get_settings()
+    sidecar_url = (request.sidecar_url or settings.indicf5_endpoint_url or "").rstrip("/")
+
+    adapter = GeminiAdapter()
+
+    if request.mode == "translate":
+        system_prompt = (
+            "You are an expert Hindi translator and transliterator. "
+            "Convert the user's input into natural Hindi in pure Devanagari script (देवनागरी). "
+            "Return ONLY the Devanagari Hindi text with no English words, quotes, or markdown."
+        )
+    else:
+        system_prompt = (
+            "You are Raghvi, a sweet, warm and intelligent AI companion assistant. "
+            "The user may talk to you in Hinglish, Hindi, or English. "
+            "Always reply warmly, helpfully and concisely (1-2 short sentences) in natural "
+            "conversational Hindi using pure Devanagari script (देवनागरी). "
+            "Do NOT use English or Latin alphabet so the speech synthesizer speaks smoothly."
+        )
+
+    messages = list(request.history)
+    messages.append({"role": "user", "content": msg})
+
+    try:
+        reply_text, _ = await adapter.send_message(
+            messages=messages,
+            system_prompt=system_prompt,
+            max_tokens=300,
+            temperature=0.7,
+        )
+    except Exception as e:
+        logger.error(f"Live Gemini API call failed: {e}")
+        reply_text = "नमस्ते! मैं राघवी हूँ। मैं आपकी किस प्रकार सहायता कर सकती हूँ?"
+
+    cleaned_speech_text = clean_text_for_speech(reply_text, is_hindi=True)
+
+    audio_base64 = None
+    if sidecar_url:
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                res = await client.post(
+                    f"{sidecar_url}/synthesize",
+                    json={
+                        "text": cleaned_speech_text,
+                        "language": "hi",
+                        "speed": request.speed,
+                    },
+                )
+                if res.status_code == 200:
+                    audio_base64 = base64.b64encode(res.content).decode("utf-8")
+                else:
+                    logger.warning(
+                        f"Sidecar returned status {res.status_code}: {res.text}"
+                    )
+        except Exception as e:
+            logger.warning(f"Voice synthesis via sidecar failed: {e}")
+
+    return {
+        "user_message": msg,
+        "assistant_message": reply_text,
+        "hindi_text": cleaned_speech_text,
+        "audio_base64": audio_base64,
+        "provider": "Gemini Live + IndicF5 GPU Cloned Voice",
+    }

@@ -540,3 +540,49 @@ async def test_fallback_adapter_router_integration():
     health = await adapter.check_health_all()
     assert health["prov_a"]["status"] == "ready"
     assert health["prov_b"]["status"] == "ready"
+
+
+@pytest.mark.asyncio
+async def test_indicf5_sidecar_wake_up_ping_and_swara_fallback(monkeypatch):
+    """Test Colab sidecar wake-up ping triggering and seamless Swara failover."""
+    from app.services.voice.providers.edge_tts_provider import EdgeTTSProvider
+    from app.services.voice.providers.indicf5 import IndicF5Provider
+
+    p_colab = IndicF5Provider({"endpoint_url": "http://127.0.0.1:59999"})
+    p_edge = EdgeTTSProvider({})
+
+    wake_pings = []
+
+    def mock_trigger_ping(self):
+        wake_pings.append("pinged")
+
+    monkeypatch.setattr(IndicF5Provider, "_trigger_wake_up_ping", mock_trigger_ping)
+
+    captured_voices = []
+
+    class MockCommunicate:
+        def __init__(self, text, voice, rate, pitch):
+            captured_voices.append(voice)
+
+        async def stream(self):
+            yield {"type": "audio", "data": b"swara_fallback_audio"}
+
+    import edge_tts
+
+    monkeypatch.setattr(edge_tts, "Communicate", MockCommunicate)
+
+    router = VoiceRouter([p_colab, p_edge])
+    req = VoiceSynthesisRequest(
+        text="नमस्ते! मैं राघवी हूँ।",
+        voice_id="default",
+        language="hi",
+    )
+
+    response = await router.synthesize_speech(req)
+
+    # 1. IndicF5 sidecar was offline -> wake-up ping triggered
+    assert len(wake_pings) == 1
+    # 2. Router fell over to Swara seamlessly
+    assert response.provider == "edge_tts"
+    assert response.audio_data == b"swara_fallback_audio"
+    assert captured_voices[-1] == "hi-IN-SwaraNeural"
