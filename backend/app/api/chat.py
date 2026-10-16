@@ -629,11 +629,34 @@ async def live_gemini_voice(request: LiveGeminiVoiceRequest) -> dict:
         except Exception as e:
             logger.warning(f"Voice synthesis via sidecar failed: {e}")
 
+    user_voice_prefs: dict = {}
+    try:
+        from sqlalchemy import select
+        from sqlalchemy.ext.asyncio import AsyncSession
+
+        from app.db.session import engine
+        from app.models.user import User
+
+        async with AsyncSession(engine) as db_sess:
+            active_u = await db_sess.scalar(select(User))
+            if active_u and active_u.preferences:
+                user_voice_prefs = active_u.preferences.get("voice_settings", {})
+    except Exception as e:
+        logger.debug(f"Could not load voice preferences: {e}")
+
+    custom_voice = user_voice_prefs.get("custom_voice_name")
+    is_custom = user_voice_prefs.get("selected_voice_id") == "custom"
+    provider_label = (
+        f"IndicF5 Cloned Voice ({custom_voice})"
+        if is_custom and custom_voice
+        else "Gemini Live + IndicF5 GPU Cloned Voice"
+    )
+
     return {
         "user_message": msg,
         "assistant_message": reply_text,
         "hindi_text": cleaned_speech_text,
         "audio_base64": audio_base64,
-        "provider": "Gemini Live + IndicF5 GPU Cloned Voice",
+        "provider": provider_label,
         "action_proposal": action_proposal_dict,
     }

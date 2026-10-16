@@ -15,14 +15,21 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -48,6 +55,9 @@ import com.raghvi.assistant.network.VoiceSettings
 import androidx.core.content.ContextCompat
 import com.raghvi.assistant.voice.RaghviVoiceDaemonService
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +73,43 @@ fun PrivacyScreen(
     var isLoading by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var customVoiceName by remember { mutableStateOf("") }
+    var isCloningVoice by remember { mutableStateOf(false) }
+
+    val voicePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                isCloningVoice = true
+                statusMessage = "Reading voice sample and uploading for cloning..."
+                try {
+                    val stream = context.contentResolver.openInputStream(uri)
+                        ?: throw IllegalArgumentException("Cannot open voice file stream")
+                    val bytes = stream.use { it.readBytes() }
+                    val mime = context.contentResolver.getType(uri) ?: "audio/wav"
+                    val filePart = MultipartBody.Part.createFormData(
+                        "audio_file",
+                        "custom_voice_sample.wav",
+                        bytes.toRequestBody(mime.toMediaTypeOrNull())
+                    )
+                    val nameToUse = customVoiceName.ifBlank { "My Cloned Voice" }
+                    val namePart = nameToUse.toRequestBody("text/plain".toMediaTypeOrNull())
+
+                    val res = ApiClient.authApi.cloneCustomVoice(filePart, namePart)
+                    if (res.voice_settings != null) {
+                        voiceSettings = res.voice_settings
+                    }
+                    statusMessage = res.message
+                    customVoiceName = ""
+                } catch (e: Exception) {
+                    statusMessage = "Voice cloning failed: ${e.message}"
+                } finally {
+                    isCloningVoice = false
+                }
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         try {
@@ -233,7 +280,93 @@ fun PrivacyScreen(
                                     }
                                 }
                             }
-                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        "Custom Voice Cloning (Feed Manual Voice Sample)",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Upload a 10–30s recording of your own voice (.mp3, .wav, .m4a). IndicF5 will clone your voice so Raghvi talks in your exact voice!",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Active Voice Status Chip
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (voiceSettings.selected_voice_id == "custom") {
+                            SuggestionChip(
+                                onClick = {},
+                                label = { Text("Active: ${voiceSettings.custom_voice_name ?: "Your Cloned Voice"}") }
+                            )
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        try {
+                                            val res = ApiClient.authApi.resetDefaultVoice()
+                                            if (res.voice_settings != null) {
+                                                voiceSettings = res.voice_settings
+                                            }
+                                            statusMessage = "Reset to default Raghvi voice."
+                                        } catch (e: Exception) {
+                                            statusMessage = "Failed to reset voice: ${e.message}"
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(Icons.Filled.RestartAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Reset to Default")
+                            }
+                        } else {
+                            SuggestionChip(
+                                onClick = {},
+                                label = { Text("Active: Official Raghvi (IndicF5 Clone)") }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = customVoiceName,
+                        onValueChange = { customVoiceName = it },
+                        label = { Text("Custom Voice Label (e.g. Vishal's Voice)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    if (isCloningVoice) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Cloning your voice... Please wait", style = MaterialTheme.typography.bodySmall)
+                        }
+                    } else {
+                        Button(
+                            onClick = { voicePickerLauncher.launch("audio/*") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Filled.RecordVoiceOver, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Feed Voice Audio for Cloning")
+                        }
                     }
                 }
             }

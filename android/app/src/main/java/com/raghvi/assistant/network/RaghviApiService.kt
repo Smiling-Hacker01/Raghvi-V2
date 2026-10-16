@@ -2,10 +2,15 @@ package com.raghvi.assistant.network
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.PATCH
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.POST
 import retrofit2.http.Query
@@ -136,7 +141,16 @@ data class VoiceSettings(
     val voice_activation_enabled: Boolean = false,
     val allow_interruptions: Boolean = true,
     val personalized_voice_enabled: Boolean = true,
-    val selected_voice_id: String? = null
+    val selected_voice_id: String? = null,
+    val custom_voice_name: String? = null
+)
+
+@Serializable
+data class CustomVoiceCloneResponse(
+    val status: String,
+    val voice_name: String? = null,
+    val message: String,
+    val voice_settings: VoiceSettings? = null
 )
 
 @Serializable
@@ -300,6 +314,16 @@ interface RaghviApiService {
     @retrofit2.http.PUT("/voices/settings")
     suspend fun updateVoiceSettings(@Body settings: VoiceSettings): VoiceSettings
 
+    @Multipart
+    @POST("/voices/clone-custom-sample")
+    suspend fun cloneCustomVoice(
+        @Part audio_file: MultipartBody.Part,
+        @Part("voice_name") voiceName: RequestBody
+    ): CustomVoiceCloneResponse
+
+    @POST("/voices/reset-default")
+    suspend fun resetDefaultVoice(): CustomVoiceCloneResponse
+
     // M3 — Memories
     @GET("/memories")
     suspend fun getApprovedMemories(@Query("limit") limit: Int = 50): MemoryListResponse
@@ -417,6 +441,38 @@ interface RaghviApiService {
 
     @POST("/connected-accounts/sync-all")
     suspend fun syncAllConnectedAccounts(): List<SyncAccountResult>
+
+    // Meetings & Audio Intelligence
+    @GET("/meetings")
+    suspend fun getMeetings(
+        @Query("q") query: String? = null,
+        @Query("limit") limit: Int = 50
+    ): MeetingListResponse
+
+    @GET("/meetings/{id}")
+    suspend fun getMeeting(@Path("id") id: String): MeetingNoteItem
+
+    @POST("/meetings")
+    suspend fun createMeeting(@Body request: MeetingCreateRequest): MeetingNoteItem
+
+    @Multipart
+    @POST("/meetings/upload-audio")
+    suspend fun uploadMeetingAudio(
+        @Part file: MultipartBody.Part,
+        @Part("title") title: RequestBody
+    ): MeetingNoteItem
+
+    @PATCH("/meetings/{id}")
+    suspend fun updateMeeting(
+        @Path("id") id: String,
+        @Body request: MeetingUpdateRequest
+    ): MeetingNoteItem
+
+    @DELETE("/meetings/{id}")
+    suspend fun deleteMeeting(@Path("id") id: String)
+
+    @GET("/meetings/{id}/export")
+    suspend fun exportMeetingMarkdown(@Path("id") id: String): ResponseBody
 }
 
 // M5 Data Models
@@ -573,5 +629,51 @@ data class SyncAccountResult(
     val new_messages_count: Int = 0,
     val success: Boolean = true,
     val error_message: String? = null
+)
+
+// Meeting Notes & Audio Intelligence Models
+@Serializable
+data class MeetingActionItem(
+    val task: String = "",
+    val owner: String = "Unassigned"
+)
+
+@Serializable
+data class MeetingNoteItem(
+    val id: String,
+    val title: String,
+    val meeting_date: String = "",
+    val duration_seconds: Int = 0,
+    val raw_transcript: String = "",
+    val summary: String = "",
+    val key_decisions: List<String> = emptyList(),
+    val discussion_points: List<String> = emptyList(),
+    val action_items: List<MeetingActionItem> = emptyList(),
+    val confidence_score: Double = 0.95,
+    val uncertainty_notes: String? = null,
+    val created_at: String = "",
+    val updated_at: String = ""
+)
+
+@Serializable
+data class MeetingListResponse(
+    val meetings: List<MeetingNoteItem> = emptyList(),
+    val total: Int = 0
+)
+
+@Serializable
+data class MeetingCreateRequest(
+    val title: String,
+    val transcript: String,
+    val duration_seconds: Int = 0,
+    val meeting_date: String? = null
+)
+
+@Serializable
+data class MeetingUpdateRequest(
+    val title: String? = null,
+    val summary: String? = null,
+    val key_decisions: List<String>? = null,
+    val discussion_points: List<String>? = null
 )
 

@@ -174,4 +174,75 @@ class VoiceAudioIntegrationTest {
         )
         assertEquals(1, memoriesState.selectedTab)
     }
+
+    @Test
+    fun testMeetingNotesAndAudioFeedDataModels() {
+        val action = com.raghvi.assistant.network.MeetingActionItem(
+            task = "Complete Q4 architecture roadmap",
+            owner = "Vishal"
+        )
+        assertEquals("Complete Q4 architecture roadmap", action.task)
+        assertEquals("Vishal", action.owner)
+
+        val note = com.raghvi.assistant.network.MeetingNoteItem(
+            id = "meet-101",
+            title = "Q4 Strategy Meeting",
+            meeting_date = "2026-10-16T14:00:00",
+            duration_seconds = 1800,
+            raw_transcript = "Team discussed deployment milestones and agreed on hybrid cloud.",
+            summary = "Executive alignment on hybrid cloud infrastructure.",
+            key_decisions = listOf("Adopt hybrid cloud infrastructure", "Launch beta by November"),
+            discussion_points = listOf("Latency benchmarks", "IndicF5 TTS sidecar scaling"),
+            action_items = listOf(action),
+            confidence_score = 0.98
+        )
+
+        assertEquals("meet-101", note.id)
+        assertEquals("Q4 Strategy Meeting", note.title)
+        assertEquals(1, note.action_items.size)
+        assertEquals("Adopt hybrid cloud infrastructure", note.key_decisions[0])
+        assertEquals(0.98, note.confidence_score, 0.001)
+
+        val listResponse = com.raghvi.assistant.network.MeetingListResponse(
+            meetings = listOf(note),
+            total = 1
+        )
+        assertEquals(1, listResponse.total)
+        assertEquals("Q4 Strategy Meeting", listResponse.meetings.first().title)
+
+        val uiState = com.raghvi.assistant.ui.meetings.MeetingsUiState(
+            meetings = listOf(note),
+            isLoading = false,
+            isUploading = true,
+            uploadProgressMessage = "Transcribing with Whisper...",
+            searchQuery = "Strategy"
+        )
+        assertTrue(uiState.isUploading)
+        assertEquals("Transcribing with Whisper...", uiState.uploadProgressMessage)
+        assertEquals("Strategy", uiState.searchQuery)
+    }
+
+    @Test
+    fun testCustomVoiceCloningDataModels() {
+        val settings = VoiceSettings(
+            voice_enabled = true,
+            personalized_voice_enabled = true,
+            selected_voice_id = "custom",
+            custom_voice_name = "Vishal's Voice"
+        )
+        assertEquals("custom", settings.selected_voice_id)
+        assertEquals("Vishal's Voice", settings.custom_voice_name)
+        assertTrue(settings.personalized_voice_enabled)
+
+        val cloneResp = com.raghvi.assistant.network.CustomVoiceCloneResponse(
+            status = "cloned",
+            voice_name = "Vishal's Voice",
+            message = "Custom voice successfully cloned!",
+            voice_settings = settings
+        )
+        assertEquals("cloned", cloneResp.status)
+        assertEquals("Vishal's Voice", cloneResp.voice_name)
+        assertNotNull(cloneResp.voice_settings)
+        assertEquals("custom", cloneResp.voice_settings?.selected_voice_id)
+    }
 }

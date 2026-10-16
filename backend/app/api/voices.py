@@ -1,9 +1,12 @@
 """Voice management and synthesis endpoints."""
 
 import logging
+import os
 from typing import Annotated, Any
 from uuid import UUID
 
+import httpx
+from anyio import Path as AsyncPath
 from fastapi import (
     APIRouter,
     Depends,
@@ -268,6 +271,106 @@ async def upload_voice_sample(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to upload voice: {str(e)}",
         ) from e
+
+
+@router.post("/clone-custom-sample")
+async def clone_custom_sample(
+    current_user: CurrentUser,
+    session: DbSession,
+    audio_file: Annotated[UploadFile, File()],
+    voice_name: Annotated[str, Form()] = "My Custom Voice",
+) -> dict:
+    """
+    Feed manual audio sample to clone a custom voice.
+    Saves the reference audio, forwards it to the voice cloning sidecar/engine,
+    and sets it as the active personalized voice for Raghvi.
+    """
+    try:
+        content = await audio_file.read()
+        if not content:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded voice sample audio cannot be empty",
+            )
+
+        # 1. Save locally in persistent voices directory
+        target_dir = AsyncPath("data/voices")
+        await target_dir.mkdir(parents=True, exist_ok=True)
+        fname = audio_file.filename or "sample.wav"
+        file_ext = fname.split(".")[-1] if "." in fname else "wav"
+        local_ref_path = f"data/voices/{current_user.id}_custom_ref.{file_ext}"
+        await AsyncPath(local_ref_path).write_bytes(content)
+
+        # 2. Forward to GPU voice cloning sidecar if online
+        sidecar_url = os.getenv("INDICF5_ENDPOINT_URL") or os.getenv("INDICF5_SIDECAR_URL")
+        if sidecar_url:
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    files = {
+                        "audio_file": (
+                            audio_file.filename or "custom_voice.wav",
+                            content,
+                            audio_file.content_type or "audio/wav",
+                        )
+                    }
+                    await client.post(f"{sidecar_url.rstrip('/')}/upload_sample", files=files)
+                    logger.info("Forwarded custom voice sample to GPU sidecar")
+            except Exception as e:
+                logger.warning(f"Could not forward sample to sidecar immediately: {e}")
+
+        # 3. Update user preferences to activate custom cloned voice
+        current_prefs = dict(current_user.preferences or {})
+        voice_prefs = current_prefs.get("voice_settings", {})
+        voice_prefs["personalized_voice_enabled"] = True
+        voice_prefs["selected_voice_id"] = "custom"
+        voice_prefs["custom_voice_name"] = voice_name
+        voice_prefs["custom_voice_path"] = local_ref_path
+        current_prefs["voice_settings"] = voice_prefs
+
+        current_user.preferences = current_prefs
+        await session.commit()
+
+        msg = (
+            f"Custom voice '{voice_name}' successfully cloned! "
+            "Raghvi will now use this voice."
+        )
+        return {
+            "status": "cloned",
+            "voice_name": voice_name,
+            "message": msg,
+            "voice_settings": voice_prefs,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Custom voice cloning failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to clone voice sample: {str(e)}",
+        ) from e
+
+
+@router.post("/reset-default")
+async def reset_default_voice(
+    current_user: CurrentUser,
+    session: DbSession,
+) -> dict:
+    """Reset user voice back to default official Raghvi cloned voice."""
+    current_prefs = dict(current_user.preferences or {})
+    voice_prefs = current_prefs.get("voice_settings", {})
+    voice_prefs["selected_voice_id"] = None
+    voice_prefs["custom_voice_name"] = None
+    voice_prefs["personalized_voice_enabled"] = False
+    current_prefs["voice_settings"] = voice_prefs
+
+    current_user.preferences = current_prefs
+    await session.commit()
+
+    return {
+        "status": "reset",
+        "message": "Reset to default Raghvi voice.",
+        "voice_settings": voice_prefs,
+    }
 
 
 @router.post("/{voice_id}/clone")

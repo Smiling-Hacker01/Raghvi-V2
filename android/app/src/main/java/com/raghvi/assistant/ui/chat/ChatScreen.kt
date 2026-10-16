@@ -95,6 +95,7 @@ import kotlinx.serialization.json.jsonPrimitive
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
+    onNavigateToMeetings: () -> Unit = {},
     onNavigateToMemories: () -> Unit = {},
     onNavigateToTasks: () -> Unit = {},
     onNavigateToPrivacy: () -> Unit = {},
@@ -217,6 +218,7 @@ fun ChatScreen(
                 currentDestination = "chat",
                 onNavigate = { destination ->
                     when (destination) {
+                        "meetings" -> onNavigateToMeetings()
                         "memories" -> onNavigateToMemories()
                         "tasks" -> onNavigateToTasks()
                         "privacy" -> onNavigateToPrivacy()
