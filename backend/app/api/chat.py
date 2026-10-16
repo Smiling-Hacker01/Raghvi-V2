@@ -471,9 +471,7 @@ async def live_gemini_voice(request: LiveGeminiVoiceRequest) -> dict:
                 if res.status_code == 200:
                     audio_base64 = base64.b64encode(res.content).decode("utf-8")
                 else:
-                    logger.warning(
-                        f"Sidecar returned status {res.status_code}: {res.text}"
-                    )
+                    logger.warning(f"Sidecar returned status {res.status_code}: {res.text}")
         except Exception as e:
             logger.warning(f"Voice synthesis via sidecar failed: {e}")
 

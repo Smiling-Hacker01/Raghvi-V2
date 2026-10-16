@@ -63,7 +63,6 @@ def _resolve_reference_audio(custom_path: str | None = None) -> str:
     return DEFAULT_REFERENCE_AUDIO
 
 
-
 def _get_torch() -> Any:
     """Safely resolve PyTorch module if installed in the host environment."""
     try:
@@ -150,9 +149,7 @@ def load_model(hf_token: str | None = None) -> None:
         DiT = f5_model_mod.DiT
         vocoder = load_vocoder(vocoder_name="vocos", is_local=False, device=device)
 
-        model_cfg = dict(
-            dim=768, depth=18, heads=12, ff_mult=2, text_dim=512, conv_layers=4
-        )
+        model_cfg = dict(dim=768, depth=18, heads=12, ff_mult=2, text_dim=512, conv_layers=4)
         try:
             # IndicF5 variant (load_model creates architecture, load_checkpoint loads weights)
             model = f5_load_model(
@@ -163,9 +160,7 @@ def load_model(hf_token: str | None = None) -> None:
                 device=device,
             )
             if load_checkpoint is not None:
-                model = load_checkpoint(
-                    model, ckpt_path=ckpt_path, device=device, use_ema=True
-                )
+                model = load_checkpoint(model, ckpt_path=ckpt_path, device=device, use_ema=True)
         except TypeError:
             # Upstream F5-TTS variant (single-step with ckpt_path)
             model = f5_load_model(
@@ -215,9 +210,7 @@ def load_model(hf_token: str | None = None) -> None:
             filename="F5TTS_Base/model_1200000.safetensors",
         )
         saved_vocab = vocab_path if "vocab_path" in locals() and vocab_path else ""
-        cfg_base = dict(
-            dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4
-        )
+        cfg_base = dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)
         try:
             model = f5_load_model(
                 model_cls=DiT,
@@ -243,7 +236,6 @@ def load_model(hf_token: str | None = None) -> None:
         logger.info("F5-TTS model loaded successfully onto GPU!")
     except Exception as e:
         logger.warning(f"Voice model import failed: {e}. Operating in lightweight sidecar mode.")
-
 
 
 class SynthesisRequest(BaseModel):
@@ -279,7 +271,6 @@ async def health_check():
     }
 
 
-
 @app.post("/upload_sample")
 async def upload_reference_sample(
     audio_file: Annotated[UploadFile, File()],
@@ -306,79 +297,320 @@ async def upload_reference_sample(
 
 
 _ROMAN_TO_DEVA: dict[str, str] = {
-    "mai": "मैं", "main": "मैं", "me": "मैं", "mera": "मेरा", "meri": "मेरी", "mere": "मेरे",
-    "mujhe": "मुझे", "mujhko": "मुझको", "mujhse": "मुझसे", "hum": "हम", "humara": "हमारा",
-    "humari": "हमारी", "humare": "हमारे", "hume": "हमें", "humein": "हमें", "humse": "हमसे",
-    "tum": "तुम", "tumhara": "तुम्हारा", "tumhari": "तुम्हारी", "tumhare": "तुम्हारे",
-    "tumhe": "तुम्हें", "tumko": "तुमको", "tumse": "तुमसे", "aap": "आप", "aapka": "आपका",
-    "aapki": "आपकी", "aapke": "आपके", "aapko": "आपको", "aapse": "आपसे", "yeh": "यह",
-    "ye": "ये", "iska": "इसका", "iski": "इसकी", "iske": "इसके", "ise": "इसे", "isse": "इससे",
-    "inhe": "इन्हें", "inse": "इनसे", "woh": "वह", "wo": "वो", "uska": "उसका", "uski": "उसकी",
-    "uske": "उसके", "use": "उसे", "usse": "उससे", "unka": "उनका", "unki": "उनकी",
-    "unke": "उनके", "unhe": "उन्हें", "unse": "उनसे", "apna": "अपना", "apni": "अपनी",
-    "apne": "अपने", "khud": "खुद", "kya": "क्या", "kyun": "क्यों", "kyu": "क्यों",
-    "kaise": "कैसे", "kaisa": "कैसा", "kaisi": "कैसी", "kese": "कैसे", "kesi": "कैसी",
-    "kahan": "कहाँ", "kaha": "कहाँ", "kidhar": "किधर", "kab": "कब", "kaun": "कौन",
-    "kon": "कौन", "kitna": "कितना", "kitne": "कितने", "kitni": "कितनी", "kis": "किस",
-    "kisko": "किसको", "kisse": "किससे", "raghvi": "राघवी", "namaste": "नमस्ते",
-    "namaskar": "नमस्कार", "pranam": "प्रणाम", "hello": "नमस्ते", "hi": "नमस्ते",
-    "hii": "नमस्ते", "hey": "अरे सुनो", "bye": "अलविदा", "alvida": "अलविदा",
-    "shukriya": "शुक्रिया", "dhanyavaad": "धन्यवाद", "dhanyawad": "धन्यवाद", "haan": "हाँ",
-    "ha": "हाँ", "han": "हाँ", "nahi": "नहीं", "nahin": "नहीं", "na": "ना", "mat": "मत",
-    "theek": "ठीक", "thik": "ठीक", "accha": "अच्छा", "achha": "अच्छा", "achhi": "अच्छी",
-    "achi": "अच्छी", "achhe": "अच्छे", "ache": "अच्छे", "sahi": "सही", "galat": "गलत",
-    "bilkul": "बिल्कुल", "zaroor": "ज़रूर", "zarur": "ज़रूर", "shayad": "शायद",
-    "kripya": "कृपया", "please": "कृपया", "hai": "है", "hain": "हैं", "he": "है",
-    "ho": "हो", "hoon": "हूँ", "hun": "हूँ", "tha": "था", "thi": "थी", "the": "थे",
-    "hoga": "होगा", "hogi": "होगी", "hoge": "होंगे", "honge": "होंगे", "raha": "रहा",
-    "rahe": "रहे", "rahi": "रही", "hua": "हुआ", "hue": "हुए", "hui": "हुई", "karo": "करो",
-    "karna": "करना", "kare": "करें", "karein": "करें", "kar": "कर", "karta": "करता",
-    "karti": "करती", "karte": "करते", "karunga": "करूँगा", "karungi": "करूँगी",
-    "karoge": "करोगे", "karogi": "करोगी", "karni": "करनी", "karne": "करने",
-    "batao": "बताओ", "batana": "बताना", "bolo": "बोलो", "bolna": "बोलना", "suno": "सुनो",
-    "sunao": "सुनाओ", "dekho": "देखो", "dekh": "देख", "dekhna": "देखना", "samjho": "समझो",
-    "samajh": "समझ", "samjha": "समझा", "samjhi": "समझी", "chalo": "चलो", "chal": "चल",
-    "chalte": "चलते", "aao": "आओ", "aana": "आना", "jao": "जाओ", "jana": "जाना",
-    "milte": "मिलते", "milo": "मिलो", "milna": "मिलना", "le": "ले", "lo": "लो",
-    "lena": "लेना", "de": "दे", "do": "दो", "dena": "देना", "rakho": "रखो",
-    "rakhna": "रखना", "baitho": "बैठो", "sona": "सोना", "so": "सो", "uth": "उठ",
-    "utho": "उठो", "madad": "मदद", "sahayata": "सहायता", "baat": "बात",
-    "baatein": "बातें", "sawal": "सवाल", "jawab": "जवाब", "naam": "नाम", "kaam": "काम",
-    "dost": "दोस्त", "saath": "साथ", "paas": "पास", "pyar": "प्यार", "khushi": "खुशी",
-    "khush": "खुश", "aaj": "आज", "kal": "कल", "parso": "परसों", "ab": "अब",
-    "abhi": "अभी", "pehle": "पहले", "baad": "बाद", "din": "दिन", "raat": "रात",
-    "subah": "सुबह", "shaam": "शाम", "ghar": "घर", "khana": "खाना", "pani": "पानी",
-    "chahiye": "चाहिए", "chahie": "चाहिए", "pasand": "पसंद", "zindagi": "ज़िंदगी",
-    "mausam": "मौसम", "waqt": "वक़्त", "samay": "समय", "naya": "नया", "nayi": "नयी",
-    "naye": "नए", "purana": "पुराना", "bura": "बुरा", "buri": "बुरी", "bada": "बड़ा",
-    "chota": "छोटा", "thoda": "थोड़ा", "zyada": "ज़्यादा", "jyada": "ज़्यादा",
-    "bahut": "बहुत", "bohot": "बहुत", "kuch": "कुछ", "sab": "सब", "log": "लोग",
-    "duniya": "दुनिया", "chai": "चाय", "coffee": "कॉफ़ी", "tea": "चाय",
-    "ka": "का", "ki": "की", "ke": "के", "ko": "को", "se": "से", "mein": "में",
-    "par": "पर", "aur": "और", "ya": "या", "lekin": "लेकिन", "magar": "मगर", "bhi": "भी",
+    "mai": "मैं",
+    "main": "मैं",
+    "me": "मैं",
+    "mera": "मेरा",
+    "meri": "मेरी",
+    "mere": "मेरे",
+    "mujhe": "मुझे",
+    "mujhko": "मुझको",
+    "mujhse": "मुझसे",
+    "hum": "हम",
+    "humara": "हमारा",
+    "humari": "हमारी",
+    "humare": "हमारे",
+    "hume": "हमें",
+    "humein": "हमें",
+    "humse": "हमसे",
+    "tum": "तुम",
+    "tumhara": "तुम्हारा",
+    "tumhari": "तुम्हारी",
+    "tumhare": "तुम्हारे",
+    "tumhe": "तुम्हें",
+    "tumko": "तुमको",
+    "tumse": "तुमसे",
+    "aap": "आप",
+    "aapka": "आपका",
+    "aapki": "आपकी",
+    "aapke": "आपके",
+    "aapko": "आपको",
+    "aapse": "आपसे",
+    "yeh": "यह",
+    "ye": "ये",
+    "iska": "इसका",
+    "iski": "इसकी",
+    "iske": "इसके",
+    "ise": "इसे",
+    "isse": "इससे",
+    "inhe": "इन्हें",
+    "inse": "इनसे",
+    "woh": "वह",
+    "wo": "वो",
+    "uska": "उसका",
+    "uski": "उसकी",
+    "uske": "उसके",
+    "use": "उसे",
+    "usse": "उससे",
+    "unka": "उनका",
+    "unki": "उनकी",
+    "unke": "उनके",
+    "unhe": "उन्हें",
+    "unse": "उनसे",
+    "apna": "अपना",
+    "apni": "अपनी",
+    "apne": "अपने",
+    "khud": "खुद",
+    "kya": "क्या",
+    "kyun": "क्यों",
+    "kyu": "क्यों",
+    "kaise": "कैसे",
+    "kaisa": "कैसा",
+    "kaisi": "कैसी",
+    "kese": "कैसे",
+    "kesi": "कैसी",
+    "kahan": "कहाँ",
+    "kaha": "कहाँ",
+    "kidhar": "किधर",
+    "kab": "कब",
+    "kaun": "कौन",
+    "kon": "कौन",
+    "kitna": "कितना",
+    "kitne": "कितने",
+    "kitni": "कितनी",
+    "kis": "किस",
+    "kisko": "किसको",
+    "kisse": "किससे",
+    "raghvi": "राघवी",
+    "namaste": "नमस्ते",
+    "namaskar": "नमस्कार",
+    "pranam": "प्रणाम",
+    "hello": "नमस्ते",
+    "hi": "नमस्ते",
+    "hii": "नमस्ते",
+    "hey": "अरे सुनो",
+    "bye": "अलविदा",
+    "alvida": "अलविदा",
+    "shukriya": "शुक्रिया",
+    "dhanyavaad": "धन्यवाद",
+    "dhanyawad": "धन्यवाद",
+    "haan": "हाँ",
+    "ha": "हाँ",
+    "han": "हाँ",
+    "nahi": "नहीं",
+    "nahin": "नहीं",
+    "na": "ना",
+    "mat": "मत",
+    "theek": "ठीक",
+    "thik": "ठीक",
+    "accha": "अच्छा",
+    "achha": "अच्छा",
+    "achhi": "अच्छी",
+    "achi": "अच्छी",
+    "achhe": "अच्छे",
+    "ache": "अच्छे",
+    "sahi": "सही",
+    "galat": "गलत",
+    "bilkul": "बिल्कुल",
+    "zaroor": "ज़रूर",
+    "zarur": "ज़रूर",
+    "shayad": "शायद",
+    "kripya": "कृपया",
+    "please": "कृपया",
+    "hai": "है",
+    "hain": "हैं",
+    "he": "है",
+    "ho": "हो",
+    "hoon": "हूँ",
+    "hun": "हूँ",
+    "tha": "था",
+    "thi": "थी",
+    "the": "थे",
+    "hoga": "होगा",
+    "hogi": "होगी",
+    "hoge": "होंगे",
+    "honge": "होंगे",
+    "raha": "रहा",
+    "rahe": "रहे",
+    "rahi": "रही",
+    "hua": "हुआ",
+    "hue": "हुए",
+    "hui": "हुई",
+    "karo": "करो",
+    "karna": "करना",
+    "kare": "करें",
+    "karein": "करें",
+    "kar": "कर",
+    "karta": "करता",
+    "karti": "करती",
+    "karte": "करते",
+    "karunga": "करूँगा",
+    "karungi": "करूँगी",
+    "karoge": "करोगे",
+    "karogi": "करोगी",
+    "karni": "करनी",
+    "karne": "करने",
+    "batao": "बताओ",
+    "batana": "बताना",
+    "bolo": "बोलो",
+    "bolna": "बोलना",
+    "suno": "सुनो",
+    "sunao": "सुनाओ",
+    "dekho": "देखो",
+    "dekh": "देख",
+    "dekhna": "देखना",
+    "samjho": "समझो",
+    "samajh": "समझ",
+    "samjha": "समझा",
+    "samjhi": "समझी",
+    "chalo": "चलो",
+    "chal": "चल",
+    "chalte": "चलते",
+    "aao": "आओ",
+    "aana": "आना",
+    "jao": "जाओ",
+    "jana": "जाना",
+    "milte": "मिलते",
+    "milo": "मिलो",
+    "milna": "मिलना",
+    "le": "ले",
+    "lo": "लो",
+    "lena": "लेना",
+    "de": "दे",
+    "do": "दो",
+    "dena": "देना",
+    "rakho": "रखो",
+    "rakhna": "रखना",
+    "baitho": "बैठो",
+    "sona": "सोना",
+    "so": "सो",
+    "uth": "उठ",
+    "utho": "उठो",
+    "madad": "मदद",
+    "sahayata": "सहायता",
+    "baat": "बात",
+    "baatein": "बातें",
+    "sawal": "सवाल",
+    "jawab": "जवाब",
+    "naam": "नाम",
+    "kaam": "काम",
+    "dost": "दोस्त",
+    "saath": "साथ",
+    "paas": "पास",
+    "pyar": "प्यार",
+    "khushi": "खुशी",
+    "khush": "खुश",
+    "aaj": "आज",
+    "kal": "कल",
+    "parso": "परसों",
+    "ab": "अब",
+    "abhi": "अभी",
+    "pehle": "पहले",
+    "baad": "बाद",
+    "din": "दिन",
+    "raat": "रात",
+    "subah": "सुबह",
+    "shaam": "शाम",
+    "ghar": "घर",
+    "khana": "खाना",
+    "pani": "पानी",
+    "chahiye": "चाहिए",
+    "chahie": "चाहिए",
+    "pasand": "पसंद",
+    "zindagi": "ज़िंदगी",
+    "mausam": "मौसम",
+    "waqt": "वक़्त",
+    "samay": "समय",
+    "naya": "नया",
+    "nayi": "नयी",
+    "naye": "नए",
+    "purana": "पुराना",
+    "bura": "बुरा",
+    "buri": "बुरी",
+    "bada": "बड़ा",
+    "chota": "छोटा",
+    "thoda": "थोड़ा",
+    "zyada": "ज़्यादा",
+    "jyada": "ज़्यादा",
+    "bahut": "बहुत",
+    "bohot": "बहुत",
+    "kuch": "कुछ",
+    "sab": "सब",
+    "log": "लोग",
+    "duniya": "दुनिया",
+    "chai": "चाय",
+    "coffee": "कॉफ़ी",
+    "tea": "चाय",
+    "ka": "का",
+    "ki": "की",
+    "ke": "के",
+    "ko": "को",
+    "se": "से",
+    "mein": "में",
+    "par": "पर",
+    "aur": "और",
+    "ya": "या",
+    "lekin": "लेकिन",
+    "magar": "मगर",
+    "bhi": "भी",
 }
 
 _PHONETIC_DIGRAPHS = [
-    ("chh", "छ"), ("shh", "ष"), ("kh", "ख"), ("gh", "घ"), ("ch", "च"),
-    ("jh", "झ"), ("th", "थ"), ("dh", "ध"), ("ph", "फ"), ("bh", "भ"),
-    ("sh", "श"), ("rh", "ढ़"), ("gy", "ज्ञ"), ("tr", "त्र"), ("ks", "क्ष"),
+    ("chh", "छ"),
+    ("shh", "ष"),
+    ("kh", "ख"),
+    ("gh", "घ"),
+    ("ch", "च"),
+    ("jh", "झ"),
+    ("th", "थ"),
+    ("dh", "ध"),
+    ("ph", "फ"),
+    ("bh", "भ"),
+    ("sh", "श"),
+    ("rh", "ढ़"),
+    ("gy", "ज्ञ"),
+    ("tr", "त्र"),
+    ("ks", "क्ष"),
 ]
 
 _PHONETIC_CONSONANTS = {
-    "k": "क", "g": "ग", "c": "क", "j": "ज", "t": "त", "d": "द",
-    "n": "न", "p": "प", "f": "फ", "b": "ब", "m": "म", "y": "य",
-    "r": "र", "l": "ल", "v": "व", "w": "व", "s": "स", "h": "ह",
-    "z": "ज़", "q": "क़", "x": "क्स",
+    "k": "क",
+    "g": "ग",
+    "c": "क",
+    "j": "ज",
+    "t": "त",
+    "d": "द",
+    "n": "न",
+    "p": "प",
+    "f": "फ",
+    "b": "ब",
+    "m": "म",
+    "y": "य",
+    "r": "र",
+    "l": "ल",
+    "v": "व",
+    "w": "व",
+    "s": "स",
+    "h": "ह",
+    "z": "ज़",
+    "q": "क़",
+    "x": "क्स",
 }
 
 _VOWEL_INDEP = {
-    "aa": "आ", "a": "अ", "ee": "ई", "i": "इ", "oo": "ऊ", "u": "उ",
-    "ai": "ऐ", "au": "औ", "e": "ए", "o": "ओ",
+    "aa": "आ",
+    "a": "अ",
+    "ee": "ई",
+    "i": "इ",
+    "oo": "ऊ",
+    "u": "उ",
+    "ai": "ऐ",
+    "au": "औ",
+    "e": "ए",
+    "o": "ओ",
 }
 
 _VOWEL_MATRA = {
-    "aa": "ा", "a": "", "ee": "ी", "i": "ि", "oo": "ू", "u": "ु",
-    "ai": "ै", "au": "ौ", "e": "े", "o": "ो",
+    "aa": "ा",
+    "a": "",
+    "ee": "ी",
+    "i": "ि",
+    "oo": "ू",
+    "u": "ु",
+    "ai": "ै",
+    "au": "ौ",
+    "e": "े",
+    "o": "ो",
 }
 
 
@@ -393,8 +625,8 @@ def _phonetic_word_to_devanagari(word: str) -> str:
     prev_was_consonant = False
 
     while i < n:
-        if i + 2 <= n and clean[i:i + 2] in _VOWEL_INDEP:
-            v = clean[i:i + 2]
+        if i + 2 <= n and clean[i : i + 2] in _VOWEL_INDEP:
+            v = clean[i : i + 2]
             res.append(_VOWEL_MATRA[v] if prev_was_consonant else _VOWEL_INDEP[v])
             prev_was_consonant = False
             i += 2
@@ -483,18 +715,14 @@ async def synthesize_speech(request: SynthesisRequest):
             return Response(content=buffer.read(), media_type="audio/wav")
         except Exception as e:
             logger.error(f"IndicF5 synthesis error: {e}", exc_info=True)
-            raise HTTPException(
-                status_code=500, detail=f"IndicF5 error: {e}"
-            ) from e
+            raise HTTPException(status_code=500, detail=f"IndicF5 error: {e}") from e
 
     elif model_engine == "xtts" and xtts_model is not None:
         try:
             import os
             import tempfile
 
-            is_hindi = request.language == "hi" or any(
-                ord(c) >= 0x0900 for c in request.text
-            )
+            is_hindi = request.language == "hi" or any(ord(c) >= 0x0900 for c in request.text)
             lang = "hi" if is_hindi else (request.language or "en")
 
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_f:
@@ -540,10 +768,7 @@ async def synthesize_speech(request: SynthesisRequest):
             return Response(content=buffer.read(), media_type="audio/wav")
         except Exception as e:
             logger.error(f"F5-Hindi inference error: {e}", exc_info=True)
-            raise HTTPException(
-                status_code=500, detail=f"F5-Hindi error: {e}"
-            ) from e
-
+            raise HTTPException(status_code=500, detail=f"F5-Hindi error: {e}") from e
 
     elif f5_model is not None:
         try:
@@ -567,7 +792,6 @@ async def synthesize_speech(request: SynthesisRequest):
         except Exception as e:
             logger.error(f"Inference error: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Inference error: {e}") from e
-
 
     else:
         np_mod = _get_numpy()
@@ -656,4 +880,3 @@ if __name__ == "__main__":
     load_model(hf_token=args.hf_token)
     start_tunnel(args.port, args.ngrok_token)
     uvicorn.run(app, host="0.0.0.0", port=args.port)
-

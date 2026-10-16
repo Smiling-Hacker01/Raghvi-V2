@@ -294,9 +294,7 @@ class IndicF5Provider(VoiceProvider):
             try:
                 # Longer timeout for the background wake-up attempt
                 async with httpx.AsyncClient(timeout=10.0) as client:
-                    logger.info(
-                        f"Pinging Colab GPU sidecar to wake up: {self.endpoint_url}/health"
-                    )
+                    logger.info(f"Pinging Colab GPU sidecar to wake up: {self.endpoint_url}/health")
                     await client.get(f"{self.endpoint_url.rstrip('/')}/health")
             except Exception as err:
                 logger.debug(f"Background Colab wake-up ping attempt: {err}")
