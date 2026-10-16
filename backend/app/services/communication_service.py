@@ -657,10 +657,21 @@ class CommunicationService:
         meeting_keys = (
             "schedule meeting",
             "schedule the meeting",
+            "meeting schedule",
+            "meeting schedule karo",
+            "google meet",
             "calendar invite",
             "meeting rakh do",
+            "schedule a call",
+            "schedule call",
+            "set up a meeting",
+            "setup meeting",
         )
-        if any(k in lower for k in meeting_keys):
+        is_meeting_intent = any(k in lower for k in meeting_keys) or (
+            "meeting" in lower and any(w in lower for w in ("schedule", "karo", "rakh", "book"))
+        )
+
+        if is_meeting_intent:
             # Extract emails if present
             attendees = re.findall(r"[\w\.-]+@[\w\.-]+\.\w+", text)
             time_match = re.search(r"\b(\d{1,2}(?::\d{2})?\s*(?:am|pm|baje))\b", lower)

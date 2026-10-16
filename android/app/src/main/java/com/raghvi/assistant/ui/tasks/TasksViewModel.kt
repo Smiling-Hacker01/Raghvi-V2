@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.raghvi.assistant.network.ApiClient
 import com.raghvi.assistant.network.TaskCreateRequest
 import com.raghvi.assistant.network.TaskItem
+import com.raghvi.assistant.network.TaskUpdateRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -77,6 +78,33 @@ class TasksViewModel : ViewModel() {
                 loadTasks()
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = "Failed to create task: ${e.message}") }
+            }
+        }
+    }
+
+    fun updateTask(
+        id: String,
+        title: String? = null,
+        description: String? = null,
+        status: String? = null,
+        priority: String? = null,
+        dueDate: String? = null
+    ) {
+        viewModelScope.launch {
+            try {
+                ApiClient.authApi.updateTask(
+                    id = id,
+                    request = TaskUpdateRequest(
+                        title = title?.trim()?.takeIf { it.isNotBlank() },
+                        description = description?.trim(),
+                        status = status,
+                        priority = priority,
+                        due_date = dueDate?.trim()
+                    )
+                )
+                loadTasks()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = "Failed to update task: ${e.message}") }
             }
         }
     }

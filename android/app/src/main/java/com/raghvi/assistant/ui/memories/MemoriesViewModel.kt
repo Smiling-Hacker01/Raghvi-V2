@@ -101,6 +101,20 @@ class MemoriesViewModel : ViewModel() {
         }
     }
 
+    fun updateMemory(id: String, newContent: String) {
+        val trimmed = newContent.trim()
+        if (trimmed.isBlank()) return
+        viewModelScope.launch {
+            try {
+                ApiClient.authApi.deleteMemory(id)
+                ApiClient.authApi.createMemory(MemoryCreateRequest(content = trimmed))
+                loadMemories()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = "Failed to update memory: ${e.message}") }
+            }
+        }
+    }
+
     fun dismissError() {
         _uiState.update { it.copy(errorMessage = null) }
     }

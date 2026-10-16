@@ -391,6 +391,19 @@ async def get_chat_history(
         ) from e
 
 
+@router.delete("/history", status_code=status.HTTP_204_NO_CONTENT)
+async def clear_chat_history(
+    current_user: CurrentUser,
+    session: DbSession,
+) -> None:
+    """Clear all chat messages in the user's active conversation."""
+    from sqlalchemy import delete
+
+    conversation = await ChatService.get_or_create_conversation(current_user.id, session)
+    await session.execute(delete(Message).where(Message.conversation_id == conversation.id))
+    await session.commit()
+
+
 class LiveGeminiVoiceRequest(BaseModel):
     message: str
     mode: str = "chat"  # "chat" (talk with Raghvi) or "translate" (transliterate input)
@@ -425,6 +438,142 @@ async def live_gemini_voice(request: LiveGeminiVoiceRequest) -> dict:
 
     adapter = GeminiAdapter()
 
+    comm_context = None
+    action_proposal_dict = None
+
+    if request.mode != "translate":
+        from sqlalchemy import select
+        from sqlalchemy.ext.asyncio import AsyncSession
+
+        from app.db.session import engine
+        from app.models.user import User
+        from app.services.communication_service import CommunicationService
+
+        comm_intent = CommunicationService.parse_communication_intent(msg)
+        if comm_intent:
+            try:
+                async with AsyncSession(engine) as db_sess:
+                    user = await db_sess.scalar(select(User))
+                    if user:
+                        u_id = str(user.id)
+                        itype = comm_intent.get("type")
+                        if itype == "check_email":
+                            acc_label = comm_intent.get("account_label")
+                            emails = await CommunicationService.get_emails(
+                                user_id=u_id,
+                                sender_query=comm_intent.get("sender"),
+                                account_label_query=acc_label,
+                                unread_only=comm_intent.get("unread_only", False),
+                                limit=4,
+                                session=db_sess,
+                            )
+                            if emails:
+                                summary_items = [
+                                    f"From: {e.sender_name}, Subject: '{e.subject}'"
+                                    for e in emails
+                                ]
+                                comm_context = (
+                                    f"User has {len(emails)} emails:\n"
+                                    + "\n".join(summary_items)
+                                )
+                            else:
+                                comm_context = "No new or unread emails found."
+
+                        elif itype == "reply_email":
+                            emails = await CommunicationService.get_emails(
+                                user_id=u_id, limit=1, session=db_sess
+                            )
+                            if emails:
+                                target = emails[0]
+                                thread = await CommunicationService.get_email_thread(
+                                    user_id=u_id, email_id=target.id, session=db_sess
+                                )
+                                draft = CommunicationService.draft_human_email_reply(
+                                    target_email=target,
+                                    thread=thread,
+                                    user_instructions=comm_intent.get("query"),
+                                )
+                                comm_context = (
+                                    f"Prepared email reply to {target.sender_name}: '{draft}'"
+                                )
+                                action_proposal_dict = {
+                                    "action_type": "draft_email",
+                                    "parameters": {
+                                        "recipient": target.sender,
+                                        "subject": f"Re: {target.subject}",
+                                        "body": draft,
+                                    },
+                                    "description": f"Reply to {target.sender_name}",
+                                }
+
+                        elif itype == "check_whatsapp":
+                            sender = comm_intent.get("sender")
+                            msgs = await CommunicationService.get_whatsapp_messages(
+                                user_id=u_id, sender_name=sender, limit=4, session=db_sess
+                            )
+                            if msgs:
+                                m_list = [f"{m.sender_name}: '{m.body}'" for m in msgs]
+                                comm_context = (
+                                    "Recent WhatsApp messages:\n" + "\n".join(m_list)
+                                )
+                            else:
+                                comm_context = (
+                                    f"No new WhatsApp messages from {sender or 'contacts'}."
+                                )
+
+                        elif itype == "reply_whatsapp":
+                            sender = comm_intent.get("sender") or "Contact"
+                            msgs = await CommunicationService.get_whatsapp_messages(
+                                user_id=u_id, sender_name=sender, limit=5, session=db_sess
+                            )
+                            fallback_reply = (
+                                comm_intent.get("instructions")
+                                or "Haan main pahuch raha hoon."
+                            )
+                            draft = (
+                                CommunicationService.draft_human_whatsapp_reply(
+                                    recent_messages=msgs,
+                                    user_instructions=comm_intent.get("instructions"),
+                                )
+                                if msgs
+                                else fallback_reply
+                            )
+                            recipient = msgs[0].sender if msgs else sender
+                            comm_context = f"Drafted WhatsApp reply to {sender}: '{draft}'"
+                            action_proposal_dict = {
+                                "action_type": "send_whatsapp_message",
+                                "parameters": {
+                                    "recipient": recipient,
+                                    "message": draft,
+                                },
+                                "description": f"Send WhatsApp message to {sender}",
+                            }
+
+                        elif itype == "schedule_meeting":
+                            proposal = await CommunicationService.schedule_meeting_action(
+                                user_id=u_id,
+                                title=comm_intent.get("title", "Meeting with Raghvi"),
+                                date=comm_intent.get("date", "tomorrow"),
+                                start_time=comm_intent.get("time", "11:00 AM"),
+                                attendees=comm_intent.get("attendees", []),
+                                session=db_sess,
+                            )
+                            params = proposal.parameters or {}
+                            meet_link = params.get("meet_link")
+                            comm_context = (
+                                f"Scheduled Google Meet: '{proposal.description}' "
+                                f"with link {meet_link}."
+                            )
+                            action_proposal_dict = {
+                                "proposal_id": str(proposal.id),
+                                "action_type": "schedule_meeting",
+                                "parameters": params,
+                                "description": proposal.description,
+                                "meet_link": meet_link,
+                            }
+            except Exception as e:
+                logger.warning(f"Error checking communication context in live voice: {e}")
+
     if request.mode == "translate":
         system_prompt = (
             "You are an expert Hindi translator and transliterator. "
@@ -439,6 +588,11 @@ async def live_gemini_voice(request: LiveGeminiVoiceRequest) -> dict:
             "conversational Hindi using pure Devanagari script (देवनागरी). "
             "Do NOT use English or Latin alphabet so the speech synthesizer speaks smoothly."
         )
+        if comm_context:
+            system_prompt += (
+                f"\n\nLive Communication/Schedule Context:\n{comm_context}\n"
+                "Report this context warmly to the user in Devanagari Hindi."
+            )
 
     messages = list(request.history)
     messages.append({"role": "user", "content": msg})
@@ -481,4 +635,5 @@ async def live_gemini_voice(request: LiveGeminiVoiceRequest) -> dict:
         "hindi_text": cleaned_speech_text,
         "audio_base64": audio_base64,
         "provider": "Gemini Live + IndicF5 GPU Cloned Voice",
+        "action_proposal": action_proposal_dict,
     }
