@@ -14,6 +14,7 @@ import com.raghvi.assistant.network.ApiClient
 import com.raghvi.assistant.ui.backendstatus.BackendStatusScreen
 import com.raghvi.assistant.ui.chat.ChatScreen
 import com.raghvi.assistant.ui.login.LoginScreen
+import com.raghvi.assistant.ui.meetings.MeetingsScreen
 import com.raghvi.assistant.ui.memories.MemoriesScreen
 import com.raghvi.assistant.ui.privacy.PrivacyScreen
 import com.raghvi.assistant.ui.register.RegisterScreen
@@ -28,6 +29,7 @@ object RaghviDestinations {
     const val WELCOME = "welcome"
     const val BACKEND_STATUS = "backend_status"
     const val CHAT = "chat"
+    const val MEETINGS = "meetings"
     const val MEMORIES = "memories"
     const val TASKS = "tasks"
     const val PRIVACY = "privacy"
@@ -122,6 +124,7 @@ fun RaghviNavGraph(modifier: Modifier = Modifier) {
 
         composable(RaghviDestinations.CHAT) {
             ChatScreen(
+                onNavigateToMeetings = { navigateToTab(RaghviDestinations.MEETINGS) },
                 onNavigateToMemories = { navigateToTab(RaghviDestinations.MEMORIES) },
                 onNavigateToTasks = { navigateToTab(RaghviDestinations.TASKS) },
                 onNavigateToPrivacy = { navigateToTab(RaghviDestinations.PRIVACY) },
@@ -131,6 +134,13 @@ fun RaghviNavGraph(modifier: Modifier = Modifier) {
                         popUpTo(navController.graph.id) { inclusive = true }
                     }
                 }
+            )
+        }
+
+        composable(RaghviDestinations.MEETINGS) {
+            MeetingsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToTab = { destination -> navigateToTab(destination) }
             )
         }
 

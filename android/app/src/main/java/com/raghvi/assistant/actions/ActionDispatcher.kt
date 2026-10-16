@@ -97,16 +97,24 @@ object ActionDispatcher {
     private fun dispatchScheduleMeeting(context: Context, params: JsonObject): Result<String> {
         val title = params["title"]?.jsonPrimitive?.content ?: "Meeting"
         val description = params["description"]?.jsonPrimitive?.content ?: ""
+        val meetLink = params["meet_link"]?.jsonPrimitive?.content ?: ""
         val attendees = try {
             params["attendees"]?.jsonArray?.map { it.jsonPrimitive.content }?.joinToString(",") ?: ""
         } catch (_: Exception) {
             ""
         }
 
+        val fullDescription = if (meetLink.isNotBlank()) {
+            if (description.isNotBlank()) "$description\n\nGoogle Meet: $meetLink" else "Google Meet: $meetLink"
+        } else {
+            description
+        }
+
         val calIntent = Intent(Intent.ACTION_INSERT).apply {
             data = CalendarContract.Events.CONTENT_URI
             putExtra(CalendarContract.Events.TITLE, title)
-            if (description.isNotBlank()) putExtra(CalendarContract.Events.DESCRIPTION, description)
+            if (fullDescription.isNotBlank()) putExtra(CalendarContract.Events.DESCRIPTION, fullDescription)
+            if (meetLink.isNotBlank()) putExtra(CalendarContract.Events.EVENT_LOCATION, meetLink)
             if (attendees.isNotBlank()) putExtra(Intent.EXTRA_EMAIL, attendees)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }

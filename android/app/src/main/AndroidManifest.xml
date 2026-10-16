@@ -39,5 +39,11 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <service
+            android:name=".voice.RaghviVoiceDaemonService"
+            android:label="Raghvi Background Assistant"
+            android:foregroundServiceType="microphone"
+            android:exported="false" />
     </application>
 </manifest>

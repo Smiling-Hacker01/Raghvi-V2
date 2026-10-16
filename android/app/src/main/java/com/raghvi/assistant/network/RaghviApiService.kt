@@ -2,10 +2,15 @@ package com.raghvi.assistant.network
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.PATCH
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.POST
 import retrofit2.http.Query
@@ -63,11 +68,89 @@ data class CitationModel(
 )
 
 @Serializable
+data class AudioPayload(
+    val data_base64: String,
+    val provider: String = "default",
+    val sample_rate: Int = 24000,
+    val mime_type: String = "audio/wav"
+)
+
+@Serializable
+data class ActionProposalPayload(
+    val proposal_id: String? = null,
+    val id: String? = null,
+    val action_type: String,
+    val parameters: JsonObject = JsonObject(emptyMap()),
+    val description: String? = null,
+    val meet_link: String? = null,
+    val status: String? = null
+)
+
+@Serializable
 data class ChatSendResponse(
     val user_message: String,
     val assistant_message: String,
     val tokens_used: Int? = null,
-    val citations: List<CitationModel>? = null
+    val citations: List<CitationModel>? = null,
+    val action_proposal: ActionProposalPayload? = null
+)
+
+@Serializable
+data class ChatSendWithVoiceResponse(
+    val user_message: String,
+    val assistant_message: String,
+    val tokens_used: Int? = null,
+    val citations: List<CitationModel>? = null,
+    val audio: AudioPayload? = null,
+    val action_proposal: ActionProposalPayload? = null
+)
+
+@Serializable
+data class LiveGeminiVoiceRequest(
+    val message: String,
+    val mode: String = "chat",
+    val history: List<Map<String, String>> = emptyList(),
+    val sidecar_url: String? = null,
+    val speed: Float = 1.0f
+)
+
+@Serializable
+data class LiveGeminiVoiceResponse(
+    val user_message: String,
+    val assistant_message: String,
+    val hindi_text: String? = null,
+    val audio_base64: String? = null,
+    val provider: String? = null,
+    val action_proposal: ActionProposalPayload? = null
+)
+
+@Serializable
+data class VoiceModel(
+    val id: String,
+    val name: String,
+    val language: String = "hi",
+    val provider: String = "indicf5",
+    val description: String? = null
+)
+
+@Serializable
+data class VoiceSettings(
+    val voice_enabled: Boolean = true,
+    val speaking_style: String = "conversational",
+    val language: String = "hi",
+    val voice_activation_enabled: Boolean = false,
+    val allow_interruptions: Boolean = true,
+    val personalized_voice_enabled: Boolean = true,
+    val selected_voice_id: String? = null,
+    val custom_voice_name: String? = null
+)
+
+@Serializable
+data class CustomVoiceCloneResponse(
+    val status: String,
+    val voice_name: String? = null,
+    val message: String,
+    val voice_settings: VoiceSettings? = null
 )
 
 @Serializable
@@ -76,7 +159,10 @@ data class ChatMessage(
     val role: String,
     val content: String,
     val tokens_used: Int? = null,
-    val created_at: String
+    val created_at: String,
+    val audio_base64: String? = null,
+    val audio_provider: String? = null,
+    val action_proposal: ActionProposalPayload? = null
 )
 
 @Serializable
@@ -203,14 +289,40 @@ interface RaghviApiService {
     @POST("/chat/send")
     suspend fun sendMessage(@Body request: ChatSendRequest): ChatSendResponse
 
+    @POST("/chat/send-with-voice")
+    suspend fun sendMessageWithVoice(@Body request: ChatSendRequest): ChatSendWithVoiceResponse
+
+    @POST("/chat/live-gemini-voice")
+    suspend fun sendLiveGeminiVoice(@Body request: LiveGeminiVoiceRequest): LiveGeminiVoiceResponse
+
     @GET("/chat/history")
     suspend fun getChatHistory(
         @Query("limit") limit: Int = 50,
         @Query("offset") offset: Int = 0
     ): ChatHistoryResponse
 
+    @DELETE("/chat/history")
+    suspend fun clearChatHistory()
+
     @GET("/chat/")
     suspend fun getConversation(): ConversationMetadata
+
+    // Voice Settings & Catalog
+    @GET("/voices/settings")
+    suspend fun getVoiceSettings(): VoiceSettings
+
+    @retrofit2.http.PUT("/voices/settings")
+    suspend fun updateVoiceSettings(@Body settings: VoiceSettings): VoiceSettings
+
+    @Multipart
+    @POST("/voices/clone-custom-sample")
+    suspend fun cloneCustomVoice(
+        @Part audio_file: MultipartBody.Part,
+        @Part("voice_name") voiceName: RequestBody
+    ): CustomVoiceCloneResponse
+
+    @POST("/voices/reset-default")
+    suspend fun resetDefaultVoice(): CustomVoiceCloneResponse
 
     // M3 — Memories
     @GET("/memories")
@@ -283,6 +395,84 @@ interface RaghviApiService {
     // Real Communications Sync (WhatsApp notifications / emails)
     @POST("/communications/seed")
     suspend fun seedCommunication(@Body request: SeedCommunicationRequest): JsonObject
+
+    // Communications (Email & WhatsApp)
+    @GET("/communications/emails")
+    suspend fun getEmails(
+        @Query("q") query: String? = null,
+        @Query("sender") sender: String? = null,
+        @Query("unread_only") unreadOnly: Boolean = false,
+        @Query("limit") limit: Int = 20
+    ): List<EmailItem>
+
+    @GET("/communications/emails/{id}/thread")
+    suspend fun getEmailThread(@Path("id") id: String): List<EmailItem>
+
+    @POST("/communications/emails/{id}/draft-reply")
+    suspend fun draftEmailReply(
+        @Path("id") id: String,
+        @Body request: DraftReplyRequest? = null
+    ): DraftReplyResponse
+
+    @GET("/communications/whatsapp")
+    suspend fun getWhatsAppMessages(
+        @Query("sender") sender: String? = null,
+        @Query("unread_only") unreadOnly: Boolean = false,
+        @Query("limit") limit: Int = 20
+    ): List<WhatsAppItem>
+
+    @POST("/communications/whatsapp/draft-reply")
+    suspend fun draftWhatsAppReply(
+        @Query("sender") sender: String,
+        @Body request: DraftReplyRequest? = null
+    ): DraftReplyResponse
+
+    @POST("/communications/meetings/schedule")
+    suspend fun scheduleMeeting(@Body request: ScheduleMeetingRequest): ScheduleMeetingResponse
+
+    // Connected Accounts & Google 1-Click Sync
+    @GET("/connected-accounts")
+    suspend fun getConnectedAccounts(): List<ConnectedAccount>
+
+    @GET("/connected-accounts/oauth/google/authorize")
+    suspend fun getGoogleOAuthAuthorizeUrl(
+        @Query("account_label") accountLabel: String = "Personal Gmail"
+    ): GoogleOAuthAuthorizeResponse
+
+    @POST("/connected-accounts/sync-all")
+    suspend fun syncAllConnectedAccounts(): List<SyncAccountResult>
+
+    // Meetings & Audio Intelligence
+    @GET("/meetings")
+    suspend fun getMeetings(
+        @Query("q") query: String? = null,
+        @Query("limit") limit: Int = 50
+    ): MeetingListResponse
+
+    @GET("/meetings/{id}")
+    suspend fun getMeeting(@Path("id") id: String): MeetingNoteItem
+
+    @POST("/meetings")
+    suspend fun createMeeting(@Body request: MeetingCreateRequest): MeetingNoteItem
+
+    @Multipart
+    @POST("/meetings/upload-audio")
+    suspend fun uploadMeetingAudio(
+        @Part file: MultipartBody.Part,
+        @Part("title") title: RequestBody
+    ): MeetingNoteItem
+
+    @PATCH("/meetings/{id}")
+    suspend fun updateMeeting(
+        @Path("id") id: String,
+        @Body request: MeetingUpdateRequest
+    ): MeetingNoteItem
+
+    @DELETE("/meetings/{id}")
+    suspend fun deleteMeeting(@Path("id") id: String)
+
+    @GET("/meetings/{id}/export")
+    suspend fun exportMeetingMarkdown(@Path("id") id: String): ResponseBody
 }
 
 // M5 Data Models
@@ -351,5 +541,139 @@ data class SeedCommunicationRequest(
     val thread_id: String? = null,
     val account_id: String? = null,
     val account_label: String? = null
+)
+
+// Communications & Meeting Scheduler Models
+@Serializable
+data class EmailItem(
+    val id: String,
+    val sender: String,
+    val sender_name: String,
+    val recipient: String,
+    val subject: String,
+    val body: String,
+    val thread_id: String? = null,
+    val account_id: String? = null,
+    val account_label: String? = null,
+    val is_read: Boolean = false,
+    val received_at: String
+)
+
+@Serializable
+data class WhatsAppItem(
+    val id: String,
+    val sender: String,
+    val sender_name: String,
+    val recipient: String,
+    val body: String,
+    val account_id: String? = null,
+    val account_label: String? = null,
+    val is_read: Boolean = false,
+    val received_at: String
+)
+
+@Serializable
+data class DraftReplyRequest(
+    val user_instructions: String? = null
+)
+
+@Serializable
+data class DraftReplyResponse(
+    val draft_reply: String,
+    val recipient: String,
+    val channel: String,
+    val context_summary: String
+)
+
+@Serializable
+data class ScheduleMeetingRequest(
+    val title: String,
+    val date: String,
+    val time: String,
+    val attendees: List<String> = emptyList(),
+    val description: String? = null,
+    val auto_confirm: Boolean = false
+)
+
+@Serializable
+data class ScheduleMeetingResponse(
+    val proposal_id: String? = null,
+    val status: String,
+    val description: String,
+    val meet_link: String? = null,
+    val message: String? = null
+)
+
+@Serializable
+data class ConnectedAccount(
+    val id: String,
+    val account_type: String,
+    val account_label: String,
+    val email_address: String? = null,
+    val is_active: Boolean = true,
+    val last_synced_at: String? = null
+)
+
+@Serializable
+data class GoogleOAuthAuthorizeResponse(
+    val authorization_url: String,
+    val state: String,
+    val configured: Boolean = true,
+    val instructions: String? = null
+)
+
+@Serializable
+data class SyncAccountResult(
+    val account_id: String,
+    val account_label: String,
+    val new_messages_count: Int = 0,
+    val success: Boolean = true,
+    val error_message: String? = null
+)
+
+// Meeting Notes & Audio Intelligence Models
+@Serializable
+data class MeetingActionItem(
+    val task: String = "",
+    val owner: String = "Unassigned"
+)
+
+@Serializable
+data class MeetingNoteItem(
+    val id: String,
+    val title: String,
+    val meeting_date: String = "",
+    val duration_seconds: Int = 0,
+    val raw_transcript: String = "",
+    val summary: String = "",
+    val key_decisions: List<String> = emptyList(),
+    val discussion_points: List<String> = emptyList(),
+    val action_items: List<MeetingActionItem> = emptyList(),
+    val confidence_score: Double = 0.95,
+    val uncertainty_notes: String? = null,
+    val created_at: String = "",
+    val updated_at: String = ""
+)
+
+@Serializable
+data class MeetingListResponse(
+    val meetings: List<MeetingNoteItem> = emptyList(),
+    val total: Int = 0
+)
+
+@Serializable
+data class MeetingCreateRequest(
+    val title: String,
+    val transcript: String,
+    val duration_seconds: Int = 0,
+    val meeting_date: String? = null
+)
+
+@Serializable
+data class MeetingUpdateRequest(
+    val title: String? = null,
+    val summary: String? = null,
+    val key_decisions: List<String>? = null,
+    val discussion_points: List<String>? = null
 )
 

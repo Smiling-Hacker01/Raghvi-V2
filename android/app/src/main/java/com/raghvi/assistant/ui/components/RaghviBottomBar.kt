@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 
 enum class RaghviTab(val destination: String, val label: String) {
     CHAT("chat", "Chat"),
+    MEETINGS("meetings", "Meetings"),
     MEMORIES("memories", "Memories"),
     TASKS("tasks", "Tasks"),
     PRIVACY("privacy", "Settings")
@@ -41,6 +43,23 @@ fun RaghviBottomBar(
             },
             icon = { Icon(Icons.Filled.ChatBubble, contentDescription = "Chat") },
             label = { Text(RaghviTab.CHAT.label) },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                selectedTextColor = MaterialTheme.colorScheme.primary,
+                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
+        NavigationBarItem(
+            selected = currentDestination == RaghviTab.MEETINGS.destination,
+            onClick = {
+                if (currentDestination != RaghviTab.MEETINGS.destination) {
+                    onNavigate(RaghviTab.MEETINGS.destination)
+                }
+            },
+            icon = { Icon(Icons.Filled.Description, contentDescription = "Meetings") },
+            label = { Text(RaghviTab.MEETINGS.label) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 selectedTextColor = MaterialTheme.colorScheme.primary,
