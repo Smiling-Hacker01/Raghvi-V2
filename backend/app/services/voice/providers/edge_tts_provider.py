@@ -21,6 +21,7 @@ from app.services.voice.providers.base import (
     VoiceSynthesisRequest,
     VoiceSynthesisResponse,
 )
+from app.services.voice.text_normalizer import clean_text_for_speech
 
 logger = logging.getLogger(__name__)
 
@@ -35,19 +36,19 @@ class EdgeTTSProvider(VoiceProvider):
     DEFAULT_ENGLISH_VOICE = "en-IN-NeerjaNeural"
     EXPRESSIVE_ENGLISH_VOICE = "en-IN-NeerjaExpressiveNeural"
 
-    # Emotion-driven rate and pitch adjustments
+    # Emotion-driven rate and pitch adjustments (calibrated for stable vocal timbre)
     _EMOTION_SETTINGS: dict[str, dict[str, str]] = {
-        "happy": {"rate": "-8%", "pitch": "+2Hz"},
-        "excited": {"rate": "-5%", "pitch": "+3Hz"},
-        "curious": {"rate": "-10%", "pitch": "+1Hz"},
-        "playful": {"rate": "-8%", "pitch": "+2Hz"},
-        "empathetic": {"rate": "-14%", "pitch": "-1Hz"},
-        "serious": {"rate": "-12%", "pitch": "-1Hz"},
-        "sad": {"rate": "-15%", "pitch": "-2Hz"},
-        "warm": {"rate": "-12%", "pitch": "+0Hz"},
-        "neutral": {"rate": "-12%", "pitch": "+0Hz"},
+        "happy": {"rate": "-6%", "pitch": "+1Hz"},
+        "excited": {"rate": "-5%", "pitch": "+1Hz"},
+        "curious": {"rate": "-8%", "pitch": "+1Hz"},
+        "playful": {"rate": "-6%", "pitch": "+1Hz"},
+        "empathetic": {"rate": "-10%", "pitch": "-1Hz"},
+        "serious": {"rate": "-10%", "pitch": "-1Hz"},
+        "sad": {"rate": "-10%", "pitch": "-1Hz"},
+        "warm": {"rate": "-8%", "pitch": "+0Hz"},
+        "neutral": {"rate": "-8%", "pitch": "+0Hz"},
     }
-    _DEFAULT_SETTINGS = {"rate": "-12%", "pitch": "+0Hz"}
+    _DEFAULT_SETTINGS = {"rate": "-8%", "pitch": "+0Hz"}
 
     @property
     def provider_name(self) -> str:
@@ -61,8 +62,39 @@ class EdgeTTSProvider(VoiceProvider):
             )
         self.default_hindi_voice = config.get("hindi_voice", self.DEFAULT_HINDI_VOICE)
         self.default_english_voice = config.get("english_voice", self.DEFAULT_ENGLISH_VOICE)
-        self.base_rate = config.get("rate", "-12%")
+        self.base_rate = config.get("rate", "-8%")
         logger.info("Initialized EdgeTTSProvider (Free Indian Neural Voices)")
+
+    def get_capabilities(self):
+        """Explicit capability declaration for Edge TTS provider."""
+        from app.services.voice.providers.base import ProviderCapabilities, VoiceCapability
+
+        return ProviderCapabilities(
+            capabilities={
+                VoiceCapability.TEXT_TO_SPEECH,
+                VoiceCapability.EMOTION_CONTROL,
+                VoiceCapability.SPEED_CONTROL,
+                VoiceCapability.MULTI_LINGUAL,
+            },
+            supported_languages={
+                "en",
+                "hi",
+                "hinglish",
+                "ta",
+                "te",
+                "bn",
+                "mr",
+                "gu",
+                "kn",
+                "ml",
+                "ur",
+            },
+            supported_audio_formats=["mp3", "wav"],
+            sample_rates=[24000],
+            is_commercial_ready=True,
+            is_local_inference=False,
+            license_type="Microsoft Online Services",
+        )
 
     async def clone_voice(self, request: VoiceCloneRequest) -> VoiceCloneResponse:
         """Edge TTS is a neural preset provider; instant audio cloning is not supported."""
@@ -111,18 +143,18 @@ class EdgeTTSProvider(VoiceProvider):
                 or bool(words & hinglish_keywords)
             )
 
-            # ── Pronunciation Normalization ───────────────────────────────────
-            # Ensure "Raghvi" is pronounced with an open, authentic 'aa' ("Raagh-vee" / "राघवी")
-            normalized_text = request.text
-            if is_hindi:
-                normalized_text = re.sub(r"\b[Rr]a+gh+vi\b", "राघवी", normalized_text)
-            else:
-                normalized_text = re.sub(r"\b[Rr]aghvi\b", "Raaghvi", normalized_text)
+            # ── Conversational Text Cleansing & Pronunciation Normalization ──
+            # Strips markdown, emojis, code fences, and anchors "Raghvi" phonetics
+            normalized_text = clean_text_for_speech(request.text, is_hindi=is_hindi)
+            if not normalized_text.strip():
+                normalized_text = "जी, समझ गई।" if is_hindi else "I understand."
 
-            # ── Voice Selection & Provider Routing ─────────────────────────────
-            # If the user passed a specific Edge TTS voice name, honor it.
-            # If generic default or un-cloned UUID fallback, use authentic Indian voices.
-            # If explicit custom third-party voice (e.g. ElevenLabs ID), delegate.
+            # ── Voice Selection & Persona Anchoring ───────────────────────────
+            # If the caller requested an explicit Edge voice (e.g. Neerja), honor it.
+            # If generic default or un-cloned UUID, anchor strictly to Swara (hi-IN-SwaraNeural).
+            # Swara natively speaks both Hindi and English with authentic warmth, preventing
+            # jarring turn-to-turn identity flips between two different people.
+            # If explicit specialized provider voice (e.g. ElevenLabs ID), delegate to fallback.
             voice_id_str = (request.voice_id or "").strip()
             is_edge_voice = bool("-IN-" in voice_id_str or voice_id_str.endswith("Neural"))
             is_uuid = bool(
@@ -145,12 +177,8 @@ class EdgeTTSProvider(VoiceProvider):
                     "Delegating to next voice provider in fallback chain."
                 )
 
-            if is_edge_voice:
-                voice = voice_id_str
-            elif is_hindi:
-                voice = self.default_hindi_voice
-            else:
-                voice = self.default_english_voice
+            # Consistent persona: Swara serves as Raghvi's unified neural identity
+            voice = voice_id_str if is_edge_voice else self.default_hindi_voice
 
             # ── Emotion & Pacing Settings ─────────────────────────────────────
             emotion_key = (request.emotion or "neutral").lower().strip()

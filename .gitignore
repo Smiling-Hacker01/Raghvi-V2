@@ -27,3 +27,9 @@ node_modules/
 .DS_Store
 Thumbs.db
 .env
+
+# Media & Scratch Testing
+*.wav
+*.mp3
+*.ogg
+play_sample.html

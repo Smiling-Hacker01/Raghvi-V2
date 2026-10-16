@@ -3,22 +3,27 @@
 import logging
 from typing import Any
 
-from app.services.voice.providers.base import VoiceProvider, VoiceProviderError
+from app.services.voice.providers.base import (
+    VoiceProvider,
+    VoiceProviderError,
+)
 from app.services.voice.providers.cartesia import CartesiaProvider
 from app.services.voice.providers.coqui import CoquiProvider
 from app.services.voice.providers.coqui_xtts import CoquiXTTSProvider
 from app.services.voice.providers.deepgram import DeepgramProvider
 from app.services.voice.providers.edge_tts_provider import EdgeTTSProvider
 from app.services.voice.providers.elevenlabs import ElevenLabsProvider
+from app.services.voice.providers.indicf5 import IndicF5Provider
 from app.services.voice.providers.nvidia import NvidiaProvider
 
 logger = logging.getLogger(__name__)
 
 
 class VoiceProviderFactory:
-    """Factory for creating voice provider instances."""
+    """Factory for creating and discovering voice provider instances."""
 
     _providers: dict[str, type[VoiceProvider]] = {
+        "indicf5": IndicF5Provider,
         "edge_tts": EdgeTTSProvider,
         "elevenlabs": ElevenLabsProvider,
         "coqui": CoquiProvider,
